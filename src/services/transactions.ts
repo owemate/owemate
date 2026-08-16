@@ -1,5 +1,5 @@
 import type { Transaction } from '../types/transaction';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 export async function fetchCloudTransactions(userId: string): Promise<Transaction[]> {
   if (!supabase) throw new Error('Supabase is not configured yet.');
