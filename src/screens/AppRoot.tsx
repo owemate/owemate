@@ -9,6 +9,16 @@ import { isValidUserDate } from '../utils/date';
 type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
 type Message = { type: 'error' | 'success'; text: string } | null;
 
+function getSupabaseErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'object' && error !== null) {
+    const value = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const parts = [value.message, value.details, value.hint, value.code].filter((part): part is string => typeof part === 'string' && part.length > 0);
+    if (parts.length) return parts.join(' — ');
+  }
+  return fallback;
+}
+
 export function useAppRootState() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [email, setEmail] = useState('');
@@ -43,7 +53,7 @@ export function useAppRootState() {
     const load = async () => {
       setLoading(true); setMessage(null);
       try { setTransactions(await fetchCloudTransactions(userId)); }
-      catch (error) { setTransactions([]); setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not load your records.' }); }
+      catch (error) { setTransactions([]); setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not load your records.') }); }
       finally { setLoading(false); }
     };
     void load();
@@ -62,7 +72,7 @@ export function useAppRootState() {
       if (result.error) throw result.error;
       if (result.data.session) { setScreen('dashboard'); setMessage({ type: 'success', text: screen === 'signin' ? 'Signed in successfully.' : 'Account created successfully.' }); }
       else setMessage({ type: 'success', text: 'Account created. Check your email if confirmation is enabled.' });
-    } catch (error) { setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Authentication failed.' }); }
+    } catch (error) { setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Authentication failed.') }); }
     finally { setAuthSubmitting(false); }
   };
 
@@ -82,7 +92,7 @@ export function useAppRootState() {
       setTransactions((current) => [transaction, ...current]);
       void scheduleDueDateReminder(transaction).catch(() => undefined);
       resetEntry(); setMessage({ type: 'success', text: 'Money record saved.' }); setScreen('dashboard');
-    } catch (error) { setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not save the record.' }); }
+    } catch (error) { setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not save the record.') }); }
     finally { setSaving(false); }
   };
 
@@ -92,7 +102,7 @@ export function useAppRootState() {
     try {
       await updateTransactionStatus(userId, transaction.id, nextStatus);
       setTransactions((current) => current.map((item) => item.id === transaction.id ? { ...item, status: nextStatus } : item));
-    } catch (error) { setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not update the record.' }); }
+    } catch (error) { setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not update the record.') }); }
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
@@ -100,7 +110,7 @@ export function useAppRootState() {
     try {
       await deleteCloudTransaction(userId, transactionId);
       setTransactions((current) => current.filter((item) => item.id !== transactionId));
-    } catch (error) { setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not delete the record.' }); }
+    } catch (error) { setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not delete the record.') }); }
   };
 
   const handleSignOut = async () => {
