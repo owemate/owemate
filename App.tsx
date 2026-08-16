@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,39 +12,54 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { seedTransactions } from './src/data/transactions';
+import { loadTransactions, saveTransactions } from './src/storage/transactionStorage';
+import type { Transaction, TransactionType } from './src/types/transaction';
 
 type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add';
-type EntryType = 'lent' | 'owed';
-
-type Transaction = {
-  id: string;
-  person: string;
-  amount: number;
-  type: EntryType;
-  dueDate: string;
-  note: string;
-};
-
-const initialTransactions: Transaction[] = [
-  { id: '1', person: 'Aarav', amount: 2500, type: 'lent', dueDate: '28 Aug 2026', note: 'Dinner & travel' },
-  { id: '2', person: 'Priya', amount: 1200, type: 'owed', dueDate: '02 Sep 2026', note: 'Shared shopping' },
-  { id: '3', person: 'Rohan', amount: 800, type: 'lent', dueDate: '10 Sep 2026', note: 'Tickets' },
-];
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [entryType, setEntryType] = useState<EntryType>('lent');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(true);
+  const [entryType, setEntryType] = useState<TransactionType>('lent');
   const [person, setPerson] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [note, setNote] = useState('');
 
-  const totalLent = transactions.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
-  const totalOwed = transactions.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
-  const netBalance = totalLent - totalOwed;
+  useEffect(() => {
+    const hydrate = async () => {
+      try {
+        const stored = await loadTransactions();
+        if (stored) {
+          setTransactions(stored);
+        } else {
+          setTransactions(seedTransactions);
+          await saveTransactions(seedTransactions);
+        }
+      } catch {
+        setTransactions(seedTransactions);
+      } finally {
+        setLoadingTransactions(false);
+      }
+    };
+
+    void hydrate();
+  }, []);
+
+  useEffect(() => {
+    if (loadingTransactions) return;
+    void saveTransactions(transactions);
+  }, [transactions, loadingTransactions]);
+
+  const totals = useMemo(() => {
+    const lent = transactions.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
+    const owed = transactions.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
+    return { lent, owed, net: lent - owed };
+  }, [transactions]);
 
   const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN')}`;
 
@@ -59,17 +75,17 @@ export default function App() {
     const numericAmount = Number(amount.replace(/,/g, ''));
     if (!person.trim() || !numericAmount || numericAmount <= 0) return;
 
-    setTransactions((current) => [
-      {
-        id: Date.now().toString(),
-        person: person.trim(),
-        amount: numericAmount,
-        type: entryType,
-        dueDate: dueDate.trim() || 'No date set',
-        note: note.trim() || 'No note',
-      },
-      ...current,
-    ]);
+    const transaction: Transaction = {
+      id: Date.now().toString(),
+      person: person.trim(),
+      amount: numericAmount,
+      type: entryType,
+      dueDate: dueDate.trim() || 'No date set',
+      note: note.trim() || 'No note',
+      createdAt: new Date().toISOString(),
+    };
+
+    setTransactions((current) => [transaction, ...current]);
     resetEntry();
     setScreen('dashboard');
   };
@@ -127,16 +143,10 @@ export default function App() {
             <Pressable onPress={() => setScreen('dashboard')}><Text style={styles.backButton}>‹ Dashboard</Text></Pressable>
             <Text style={styles.formTitle}>Add money record</Text>
             <Text style={styles.formSubtitle}>Record a simple peer-to-peer money entry. This is not a loan application.</Text>
-
             <View style={styles.segmentedControl}>
-              <Pressable style={[styles.segment, entryType === 'lent' && styles.segmentActive]} onPress={() => setEntryType('lent')}>
-                <Text style={[styles.segmentText, entryType === 'lent' && styles.segmentTextActive]}>I lent</Text>
-              </Pressable>
-              <Pressable style={[styles.segment, entryType === 'owed' && styles.segmentActive]} onPress={() => setEntryType('owed')}>
-                <Text style={[styles.segmentText, entryType === 'owed' && styles.segmentTextActive]}>I owe</Text>
-              </Pressable>
+              <Pressable style={[styles.segment, entryType === 'lent' && styles.segmentActive]} onPress={() => setEntryType('lent')}><Text style={[styles.segmentText, entryType === 'lent' && styles.segmentTextActive]}>I lent</Text></Pressable>
+              <Pressable style={[styles.segment, entryType === 'owed' && styles.segmentActive]} onPress={() => setEntryType('owed')}><Text style={[styles.segmentText, entryType === 'owed' && styles.segmentTextActive]}>I owe</Text></Pressable>
             </View>
-
             <View style={styles.form}>
               <Text style={styles.label}>Person</Text>
               <TextInput value={person} onChangeText={setPerson} placeholder="e.g. Aarav" placeholderTextColor="#94A3B8" style={styles.input} />
@@ -154,6 +164,15 @@ export default function App() {
     );
   }
 
+  if (loadingTransactions) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.loadingContainer}><ActivityIndicator size="large" /><Text style={styles.loadingText}>Loading your records…</Text></View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -162,34 +181,22 @@ export default function App() {
           <View><Text style={styles.greeting}>Good morning 👋</Text><Text style={styles.dashboardTitle}>Your money overview</Text></View>
           <View style={styles.smallLogo}><Text style={styles.smallLogoText}>O</Text></View>
         </View>
-
         <View style={styles.balanceCard}>
-          <Text style={styles.cardLabelLight}>Net balance</Text>
-          <Text style={styles.balanceAmount}>{formatCurrency(netBalance)}</Text>
-          <Text style={styles.balanceCaption}>{netBalance >= 0 ? 'People owe you more than you owe.' : 'You owe more than people owe you.'}</Text>
+          <Text style={styles.balanceLabel}>Net balance</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(totals.net)}</Text>
+          <Text style={styles.balanceCaption}>{totals.net >= 0 ? 'People owe you more than you owe.' : 'You owe more than people owe you.'}</Text>
         </View>
-
         <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}><Text style={styles.cardLabel}>You lent</Text><Text style={styles.summaryAmount}>{formatCurrency(totalLent)}</Text></View>
-          <View style={styles.summaryCard}><Text style={styles.cardLabel}>You owe</Text><Text style={styles.summaryAmount}>{formatCurrency(totalOwed)}</Text></View>
+          <View style={styles.summaryCard}><Text style={styles.cardLabel}>You lent</Text><Text style={styles.summaryAmount}>{formatCurrency(totals.lent)}</Text></View>
+          <View style={styles.summaryCard}><Text style={styles.cardLabel}>You owe</Text><Text style={styles.summaryAmount}>{formatCurrency(totals.owed)}</Text></View>
         </View>
-
         <Pressable style={styles.addButton} onPress={() => setScreen('add')}><Text style={styles.addButtonText}>＋ Add money record</Text></Pressable>
-
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent records</Text><Text style={styles.sectionCount}>{transactions.length}</Text></View>
-
         {transactions.map((item) => (
           <View style={styles.transactionCard} key={item.id}>
             <View style={styles.transactionIcon}><Text style={styles.transactionIconText}>{item.person.charAt(0).toUpperCase()}</Text></View>
-            <View style={styles.transactionMain}>
-              <Text style={styles.personName}>{item.person}</Text>
-              <Text style={styles.transactionNote}>{item.note}</Text>
-              <Text style={styles.dueText}>Due: {item.dueDate}</Text>
-            </View>
-            <View style={styles.amountBlock}>
-              <Text style={[styles.transactionAmount, item.type === 'owed' && styles.owedAmount]}>{item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}</Text>
-              <Text style={styles.typeText}>{item.type === 'lent' ? 'They owe you' : 'You owe'}</Text>
-            </View>
+            <View style={styles.transactionMain}><Text style={styles.personName}>{item.person}</Text><Text style={styles.transactionNote}>{item.note}</Text><Text style={styles.dueText}>Due: {item.dueDate}</Text></View>
+            <View style={styles.amountBlock}><Text style={[styles.transactionAmount, item.type === 'owed' && styles.owedAmount]}>{item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}</Text><Text style={styles.typeText}>{item.type === 'lent' ? 'They owe you' : 'You owe'}</Text></View>
           </View>
         ))}
       </ScrollView>
@@ -200,6 +207,8 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
   keyboardContainer: { flex: 1 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { color: '#64748B', fontSize: 14 },
   container: { flex: 1, justifyContent: 'space-between', padding: 24, paddingBottom: 32 },
   brandBlock: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   logoCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
@@ -228,12 +237,12 @@ const styles = StyleSheet.create({
   smallLogo: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center' },
   smallLogoText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
   balanceCard: { backgroundColor: '#0F172A', borderRadius: 20, padding: 22, marginBottom: 14 },
-  cardLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  cardLabelLight: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
+  balanceLabel: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
   balanceAmount: { fontSize: 34, fontWeight: '800', color: '#FFFFFF', marginTop: 8 },
   balanceCaption: { fontSize: 13, color: '#CBD5E1', marginTop: 7 },
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   summaryCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#E2E8F0' },
+  cardLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
   summaryAmount: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginTop: 8 },
   addButton: { height: 54, borderRadius: 14, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
   addButtonText: { color: '#0F172A', fontSize: 16, fontWeight: '800' },
