@@ -1,11 +1,251 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
 import { formatCurrency } from '../utils/currency';
 import { parseUserDate } from '../utils/date';
 import type { Transaction } from '../types/transaction';
-type Filter='all'|'pending'|'settled'|'overdue';
-type Props={transactions:Transaction[];onAdd:()=>void;onPeople:()=>void;onReminders:()=>void;onSignOut:()=>void;onToggleSettled:(transaction:Transaction)=>void;onDelete:(transaction:Transaction)=>void};
-function isOverdue(item:Transaction){if(item.status==='settled'||item.dueDate==='No date set')return false;const date=parseUserDate(item.dueDate);if(!date)return false;const today=new Date();today.setHours(23,59,59,999);return date.getTime()<today.getTime()}
-export function DashboardScreen({transactions,onAdd,onPeople,onReminders,onSignOut,onToggleSettled,onDelete}:Props){const[query,setQuery]=useState('');const[filter,setFilter]=useState<Filter>('all');const pending=transactions.filter(x=>x.status!=='settled');const overdue=pending.filter(isOverdue);const filtered=useMemo(()=>transactions.filter(item=>{const q=query.trim().toLowerCase();const matches=!q||item.person.toLowerCase().includes(q)||item.note.toLowerCase().includes(q);const matchesFilter=filter==='all'||(filter==='pending'&&item.status!=='settled')||(filter==='settled'&&item.status==='settled')||(filter==='overdue'&&isOverdue(item));return matches&&matchesFilter}),[transactions,query,filter]);return <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled"><View style={styles.top}><View><Text style={styles.eyebrow}>OWEMATE</Text><Text style={styles.title}>Your money, clearly tracked.</Text></View><Pressable onPress={onSignOut}><Text style={styles.signout}>Sign out</Text></Pressable></View><View style={styles.summary}><Text style={styles.summaryLabel}>PENDING BALANCE</Text><Text style={styles.summaryAmount}>{formatCurrency(pending.reduce((sum,item)=>sum+(item.type==='lent'?item.amount:-item.amount),0))}</Text><Text style={styles.summaryMeta}>{pending.length} pending · {overdue.length} overdue</Text></View><View style={styles.actions}><Pressable style={styles.primary} onPress={onAdd}><Text style={styles.primaryText}>+ Add Record</Text></Pressable><Pressable style={styles.secondary} onPress={onPeople}><Text style={styles.secondaryText}>People</Text></Pressable><Pressable style={styles.secondary} onPress={onReminders}><Text style={styles.secondaryText}>🔔</Text></Pressable></View><View style={styles.search}><Text style={styles.searchIcon}>⌕</Text><TextInput value={query} onChangeText={setQuery} placeholder="Search person or note" placeholderTextColor="#9AA7A5" style={styles.input}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{(['all','pending','overdue','settled'] as Filter[]).map(value=><Pressable key={value} onPress={()=>setFilter(value)} style={[styles.filter,filter===value&&styles.filterActive]}><Text style={[styles.filterText,filter===value&&styles.filterTextActive]}>{value==='all'?'All':value[0].toUpperCase()+value.slice(1)} {value==='pending'?pending.length:value==='overdue'?overdue.length:value==='settled'?transactions.filter(x=>x.status==='settled').length:transactions.length}</Text></Pressable>)}</ScrollView>{filtered.map(item=><View key={item.id} style={styles.card}><View style={styles.cardMain}><View style={[styles.dot,item.type==='owed'&&styles.dotOwed]}><Text style={styles.dotText}>{item.type==='lent'?'L':'O'}</Text></View><View style={styles.details}><Text style={styles.person}>{item.person}</Text><Text style={styles.meta}>{item.type==='lent'?'You lent':'You owe'} · {item.dueDate}</Text>{item.note!=='No note'&&<Text style={styles.note} numberOfLines={1}>{item.note}</Text>}</View><View style={styles.amountWrap}><Text style={styles.amount}>{formatCurrency(item.amount)}</Text><Text style={[styles.status,item.status==='settled'&&styles.settled]}>{item.status==='settled'?'Settled':isOverdue(item)?'Overdue':'Pending'}</Text></View></View>{item.status!=='settled'&&<Pressable style={styles.cardAction} onPress={()=>onToggleSettled(item)}><Text style={styles.actionText}>Mark as repaid</Text></Pressable>}{item.status==='settled'&&<Pressable style={styles.cardAction} onPress={()=>onToggleSettled(item)}><Text style={styles.actionText}>Reopen</Text></Pressable>}<Pressable style={styles.delete} onPress={()=>Alert.alert('Delete record?','This cannot be undone.',[{text:'Cancel',style:'cancel'},{text:'Delete',style:'destructive',onPress:()=>onDelete(item)}])}><Text style={styles.deleteText}>Delete</Text></Pressable></View>)}{filtered.length===0&&<View style={styles.empty}><Text style={styles.emptyTitle}>No matching records</Text><Text style={styles.emptyText}>Try another search or filter.</Text></View>}</ScrollView>}
-const styles=StyleSheet.create({scroll:{flex:1},container:{padding:20,paddingBottom:36},top:{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start'},eyebrow:{fontSize:10,fontWeight:'900',letterSpacing:1.5,color:'#0F766E'},title:{fontSize:25,fontWeight:'900',color:'#10201D',marginTop:4,maxWidth:260},signout:{fontSize:11,fontWeight:'800',color:'#6C7D79'},summary:{backgroundColor:'#10201D',borderRadius:24,padding:22,marginTop:20},summaryLabel:{fontSize:10,fontWeight:'900',letterSpacing:1.2,color:'#8DD9CA'},summaryAmount:{fontSize:30,fontWeight:'900',color:'#FFFFFF',marginTop:5},summaryMeta:{fontSize:11,color:'#B9C8C4',marginTop:4},actions:{flexDirection:'row',gap:8,marginTop:12},primary:{flex:1,backgroundColor:'#0F766E',borderRadius:14,paddingVertical:13,alignItems:'center'},primaryText:{color:'#FFF',fontSize:12,fontWeight:'900'},secondary:{backgroundColor:'#FFF',borderWidth:1,borderColor:'#DCE6E3',borderRadius:14,paddingHorizontal:15,justifyContent:'center'},secondaryText:{color:'#10201D',fontSize:12,fontWeight:'900'},search:{height:48,backgroundColor:'#FFF',borderWidth:1,borderColor:'#DCE6E3',borderRadius:14,flexDirection:'row',alignItems:'center',paddingHorizontal:13,marginTop:14},searchIcon:{fontSize:22,color:'#0F766E',marginRight:8},input:{flex:1,fontSize:13,color:'#10201D'},filters:{gap:8,paddingVertical:12},filter:{paddingHorizontal:13,paddingVertical:8,borderRadius:12,backgroundColor:'#E9EFED'},filterActive:{backgroundColor:'#10201D'},filterText:{fontSize:10,fontWeight:'800',color:'#63736F'},filterTextActive:{color:'#FFF'},card:{backgroundColor:'#FFF',borderWidth:1,borderColor:'#E1EAE7',borderRadius:18,padding:14,marginBottom:9},cardMain:{flexDirection:'row',alignItems:'center'},dot:{width:38,height:38,borderRadius:13,backgroundColor:'#D9F2ED',alignItems:'center',justifyContent:'center',marginRight:10},dotOwed:{backgroundColor:'#FCE7E7'},dotText:{fontWeight:'900',color:'#0F766E'},details:{flex:1,minWidth:0},person:{fontSize:14,fontWeight:'900',color:'#10201D'},meta:{fontSize:10,color:'#8A9A96',marginTop:3},note:{fontSize:10,color:'#7A8A87',marginTop:3},amountWrap:{alignItems:'flex-end'},amount:{fontSize:14,fontWeight:'900',color:'#10201D'},status:{fontSize:9,fontWeight:'900',color:'#A56C00',marginTop:3},settled:{color:'#16735F'},cardAction:{borderTopWidth:1,borderTopColor:'#EDF2F0',marginTop:11,paddingTop:9},actionText:{textAlign:'center',fontSize:10,fontWeight:'900',color:'#0F766E'},delete:{position:'absolute',right:10,bottom:8},deleteText:{fontSize:8,color:'#A55'},empty:{padding:25,alignItems:'center'},emptyTitle:{fontSize:15,fontWeight:'900',color:'#10201D'},emptyText:{fontSize:11,color:'#7A8A87',marginTop:4}
+
+type Props = {
+  transactions: Transaction[];
+  onAdd: () => void;
+  onPeople: () => void;
+  onReminders: () => void;
+  onSignOut: () => void;
+  onToggleSettled: (transaction: Transaction) => void;
+  onDelete: (transaction: Transaction) => void;
+};
+
+function isOverdue(item: Transaction) {
+  if (item.status === 'settled' || item.dueDate === 'No date set') return false;
+  const date = parseUserDate(item.dueDate);
+  if (!date) return false;
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return date.getTime() < today.getTime();
+}
+
+function relativeDueLabel(value: string) {
+  const date = parseUserDate(value);
+  if (!date) return value;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  const days = Math.round((target.getTime() - today.getTime()) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  if (days > 1 && days < 8) return `in ${days} Days`;
+  if (days < 0) return 'Overdue';
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+function initials(name: string) {
+  return name.trim().slice(0, 1).toUpperCase() || '?';
+}
+
+export function DashboardScreen({ transactions, onAdd, onPeople, onReminders, onSignOut }: Props) {
+  const pending = transactions.filter((item) => item.status !== 'settled');
+  const youLent = pending.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
+  const youBorrowed = pending.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
+  const outstanding = youLent - youBorrowed;
+  const overdue = pending.filter(isOverdue).length;
+
+  const upcoming = useMemo(() => {
+    return [...pending]
+      .sort((a, b) => {
+        const aDate = parseUserDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bDate = parseUserDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return aDate - bDate;
+      })
+      .slice(0, 3);
+  }, [transactions]);
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>A</Text>
+            </View>
+            <View>
+              <Text style={styles.greeting}>Good morning,</Text>
+              <Text style={styles.name}>Alex</Text>
+            </View>
+          </View>
+          <Pressable onPress={onReminders} style={styles.notificationButton} hitSlop={10}>
+            <Ionicons name="notifications-outline" size={22} color="#263532" />
+            {overdue > 0 && <View style={styles.notificationDot} />}
+          </Pressable>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryGlow} />
+          <Text style={styles.summaryLabel}>Outstanding Balance</Text>
+          <Text style={styles.summaryAmount}>{formatCurrency(outstanding)}</Text>
+        </View>
+
+        <View style={styles.balanceRow}>
+          <View style={[styles.smallBalance, styles.lentCard]}>
+            <View style={styles.smallLabelRow}>
+              <Text style={styles.lentArrow}>↑</Text>
+              <Text style={styles.smallLabel}>YOU LENT</Text>
+            </View>
+            <Text style={[styles.smallAmount, styles.lentText]}>{formatCurrency(youLent)}</Text>
+          </View>
+          <View style={[styles.smallBalance, styles.borrowedCard]}>
+            <View style={styles.smallLabelRow}>
+              <Text style={styles.borrowedArrow}>↓</Text>
+              <Text style={styles.smallLabel}>YOU BORROWED</Text>
+            </View>
+            <Text style={[styles.smallAmount, styles.borrowedText]}>{formatCurrency(youBorrowed)}</Text>
+          </View>
+        </View>
+
+        <Pressable style={styles.addButton} onPress={onAdd}>
+          <Ionicons name="add" size={22} color="#FFFFFF" />
+          <Text style={styles.addButtonText}>Add Transaction</Text>
+        </Pressable>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Upcoming Dues</Text>
+          <Pressable onPress={onPeople} hitSlop={8}>
+            <Text style={styles.viewAll}>View All</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.duesCard}>
+          {upcoming.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>No upcoming dues</Text>
+              <Text style={styles.emptyText}>Add a transaction to start tracking repayments.</Text>
+            </View>
+          ) : (
+            upcoming.map((item, index) => {
+              const overdueItem = isOverdue(item);
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={onPeople}
+                  style={[styles.dueItem, index > 0 && styles.dueItemBorder]}
+                >
+                  <View style={styles.duePerson}>
+                    <View style={[styles.personAvatar, overdueItem && styles.overdueAvatar]}>
+                      <Text style={[styles.personInitial, overdueItem && styles.overdueInitial]}>{initials(item.person)}</Text>
+                    </View>
+                    <View style={styles.personInfo}>
+                      <Text style={styles.personName} numberOfLines={1}>{item.person}</Text>
+                      <View style={styles.dateRow}>
+                        <Ionicons name={overdueItem ? 'warning-outline' : 'calendar-outline'} size={13} color={overdueItem ? '#BA1A1A' : '#53635F'} />
+                        <Text style={[styles.dueDate, overdueItem && styles.overdueDate]}>{relativeDueLabel(item.dueDate)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.dueAmountWrap}>
+                    <Text style={[styles.dueAmount, item.type === 'owed' && styles.payAmount]}>{formatCurrency(item.amount)}</Text>
+                    <View style={[styles.badge, item.type === 'owed' || overdueItem ? styles.payBadge : styles.receiveBadge]}>
+                      <Text style={[styles.badgeText, item.type === 'owed' || overdueItem ? styles.payBadgeText : styles.receiveBadgeText]}>
+                        {item.type === 'owed' ? 'TO PAY' : 'TO RECEIVE'}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
+
+      <View style={styles.bottomNav}>
+        <Pressable style={[styles.navItem, styles.activeNavItem]}>
+          <Ionicons name="home" size={21} color="#FFFFFF" />
+          <Text style={styles.activeNavText}>Home</Text>
+        </Pressable>
+        <Pressable style={styles.navItem} onPress={onPeople}>
+          <Ionicons name="list-outline" size={21} color="#3D4947" />
+          <Text style={styles.navText}>Transactions</Text>
+        </Pressable>
+        <View style={styles.fabSlot}>
+          <Pressable style={styles.fab} onPress={onAdd}>
+            <Ionicons name="add" size={32} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.navText}>Add</Text>
+        </View>
+        <Pressable style={styles.navItem} onPress={onReminders}>
+          <Ionicons name="calendar-outline" size={21} color="#3D4947" />
+          <Text style={styles.navText}>Calendar</Text>
+        </Pressable>
+        <Pressable style={styles.navItem} onPress={onSignOut}>
+          <Ionicons name="person-outline" size={21} color="#3D4947" />
+          <Text style={styles.navText}>Profile</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#F8F9FF' },
+  scroll: { flex: 1 },
+  content: { paddingBottom: 108 },
+  header: { height: 66, paddingHorizontal: 20, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F8F9FF', borderBottomWidth: 1, borderBottomColor: '#EEF1F7' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCE9FF', borderWidth: 1, borderColor: '#BCC9C6', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 16, fontWeight: '800', color: '#00685F' },
+  greeting: { fontSize: 14, lineHeight: 20, color: '#3D4947' },
+  name: { fontSize: 20, lineHeight: 28, fontWeight: '800', color: '#00685F' },
+  notificationButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  notificationDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: '#BA1A1A', borderWidth: 1, borderColor: '#F8F9FF' },
+  summaryCard: { height: 104, marginHorizontal: 20, marginTop: 16, padding: 16, borderRadius: 12, backgroundColor: '#FFFFFF', overflow: 'hidden', shadowColor: '#64748B', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  summaryGlow: { position: 'absolute', right: -40, top: -40, width: 128, height: 128, borderRadius: 64, backgroundColor: '#008378', opacity: 0.2 },
+  summaryLabel: { fontSize: 14, lineHeight: 20, color: '#3D4947' },
+  summaryAmount: { marginTop: 4, fontSize: 40, lineHeight: 48, fontWeight: '900', letterSpacing: -0.8, color: '#0B1C30' },
+  balanceRow: { flexDirection: 'row', gap: 16, marginHorizontal: 20, marginTop: 16 },
+  smallBalance: { flex: 1, height: 84, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#FFFFFF', borderRadius: 12, shadowColor: '#64748B', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  lentCard: { borderLeftWidth: 4, borderLeftColor: '#006947' },
+  borrowedCard: { borderLeftWidth: 4, borderLeftColor: '#B90538' },
+  smallLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  smallLabel: { fontSize: 12, lineHeight: 16, fontWeight: '800', letterSpacing: 0.6, color: '#3D4947' },
+  lentArrow: { color: '#006947', fontSize: 17, fontWeight: '900' },
+  borrowedArrow: { color: '#B90538', fontSize: 17, fontWeight: '900' },
+  smallAmount: { marginTop: 8, fontSize: 20, lineHeight: 28, fontWeight: '700' },
+  lentText: { color: '#006947' },
+  borrowedText: { color: '#B90538' },
+  addButton: { height: 60, marginHorizontal: 20, marginTop: 24, borderRadius: 30, backgroundColor: '#00685F', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, shadowColor: '#64748B', shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  addButtonText: { fontSize: 20, lineHeight: 28, fontWeight: '600', color: '#FFFFFF' },
+  sectionHeader: { marginHorizontal: 20, marginTop: 24, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontSize: 20, lineHeight: 28, fontWeight: '700', color: '#0B1C30' },
+  viewAll: { fontSize: 14, lineHeight: 20, fontWeight: '800', color: '#00685F' },
+  duesCard: { marginHorizontal: 20, backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden', shadowColor: '#64748B', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  dueItem: { minHeight: 79, paddingHorizontal: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dueItemBorder: { borderTopWidth: 1, borderTopColor: 'rgba(188,201,198,0.3)' },
+  duePerson: { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 },
+  personAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#DCE9FF', alignItems: 'center', justifyContent: 'center' },
+  overdueAvatar: { backgroundColor: '#FFDAD6' },
+  personInitial: { fontSize: 16, lineHeight: 24, fontWeight: '800', color: '#00685F' },
+  overdueInitial: { color: '#93000A' },
+  personInfo: { flex: 1, minWidth: 0 },
+  personName: { fontSize: 16, lineHeight: 24, fontWeight: '600', color: '#0B1C30' },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
+  dueDate: { fontSize: 14, lineHeight: 20, color: '#3D4947' },
+  overdueDate: { color: '#BA1A1A', fontWeight: '600' },
+  dueAmountWrap: { alignItems: 'flex-end', marginLeft: 8 },
+  dueAmount: { fontSize: 18, lineHeight: 24, fontWeight: '800', color: '#006947' },
+  payAmount: { color: '#B90538' },
+  badge: { marginTop: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  receiveBadge: { backgroundColor: 'rgba(78,222,163,0.2)' },
+  payBadge: { backgroundColor: 'rgba(255,178,183,0.3)' },
+  badgeText: { fontSize: 10, lineHeight: 15, fontWeight: '800', letterSpacing: 0.5 },
+  receiveBadgeText: { color: '#006947' },
+  payBadgeText: { color: '#B90538' },
+  empty: { padding: 24, alignItems: 'center' },
+  emptyTitle: { fontSize: 15, fontWeight: '800', color: '#0B1C30' },
+  emptyText: { marginTop: 4, fontSize: 12, color: '#6B7D79', textAlign: 'center' },
+  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 66, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#FFFFFF', borderTopLeftRadius: 12, borderTopRightRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#64748B', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: -4 }, elevation: 8 },
+  navItem: { width: 64, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  activeNavItem: { backgroundColor: '#008378' },
+  navText: { fontSize: 10, lineHeight: 10, color: '#3D4947' },
+  activeNavText: { fontSize: 10, lineHeight: 10, color: '#F4FFFC' },
+  fabSlot: { width: 56, height: 38, alignItems: 'center', position: 'relative' },
+  fab: { position: 'absolute', top: -32, width: 56, height: 56, borderRadius: 28, backgroundColor: '#00685F', borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
 });
