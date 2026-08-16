@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 export async function signUp(email: string, password: string) {
   if (!supabase) throw new Error('Supabase is not configured yet.');
