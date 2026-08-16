@@ -7,7 +7,6 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { PeopleScreen } from './src/screens/PeopleScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { useAppRootState } from './src/screens/AppRoot';
-import { isSupabaseConfigured } from './src/lib/supabaseClient';
 
 export default function App() {
   const app = useAppRootState();
@@ -21,7 +20,7 @@ export default function App() {
   }
 
   if (app.screen === 'signin' || app.screen === 'signup') {
-    return <AppShell><AuthScreen mode={app.screen} email={app.email} password={app.password} submitting={app.authSubmitting} configured={isSupabaseConfigured} message={app.message?.text ?? null} messageType={app.message?.type ?? 'error'} onEmailChange={app.setEmail} onPasswordChange={app.setPassword} onSubmit={() => void app.handleAuth()} onBack={() => { app.clearMessage(); app.setScreen('welcome'); }} /></AppShell>;
+    return <AppShell><AuthScreen mode={app.screen} email={app.email} password={app.password} submitting={app.authSubmitting} configured={app.configured} message={app.message?.text ?? null} messageType={app.message?.type ?? 'error'} onEmailChange={app.setEmail} onPasswordChange={app.setPassword} onSubmit={() => void app.handleAuth()} onBack={() => { app.clearMessage(); app.setScreen('welcome'); }} /></AppShell>;
   }
 
   if (app.screen === 'add') {
