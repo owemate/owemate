@@ -15,36 +15,16 @@ export default function App() {
 
 function AppContent() {
   const app = useAppRootState();
-
-  if (app.loading) {
-    return <AppShell><View style={styles.loading}><ActivityIndicator size="large" color="#0F766E" /><Text style={styles.loadingText}>Loading OweMate…</Text></View></AppShell>;
-  }
-
-  if (app.screen === 'welcome') {
-    return <AppShell><WelcomeScreen onSignIn={() => { app.clearMessage(); app.setScreen('signin'); }} onSignUp={() => { app.clearMessage(); app.setScreen('signup'); }} /></AppShell>;
-  }
-
-  if (app.screen === 'signin' || app.screen === 'signup') {
-    return <AppShell><AuthScreen mode={app.screen} email={app.email} password={app.password} submitting={app.authSubmitting} configured={app.configured} message={app.message?.text ?? null} messageType={app.message?.type ?? 'error'} onEmailChange={app.setEmail} onPasswordChange={app.setPassword} onSubmit={() => void app.handleAuth()} onBack={() => { app.clearMessage(); app.setScreen('welcome'); }} /></AppShell>;
-  }
-
-  if (app.screen === 'add') {
-    return <AppShell><AddTransactionScreen entryType={app.entryType} person={app.person} amount={app.amount} dueDate={app.dueDate} note={app.note} saving={app.saving} message={app.message?.text ?? null} onEntryTypeChange={app.setEntryType} onPersonChange={app.setPerson} onAmountChange={app.setAmount} onDueDateChange={app.setDueDate} onNoteChange={app.setNote} onSave={() => void app.handleSaveTransaction()} onBack={() => { app.clearMessage(); app.setScreen('dashboard'); }} /></AppShell>;
-  }
-
-  if (app.screen === 'people') {
-    return <AppShell><PeopleScreen transactions={app.transactions} onBack={() => app.setScreen('dashboard')} /></AppShell>;
-  }
-
-  return <AppShell><DashboardScreen transactions={app.transactions} onAdd={() => { app.clearMessage(); app.setScreen('add'); }} onPeople={() => app.setScreen('people')} onSignOut={() => void app.handleSignOut()} /></AppShell>;
+  if (app.loading) return <AppShell><View style={styles.loading}><ActivityIndicator size="large" color="#0F766E" /><Text style={styles.loadingText}>Loading OweMate…</Text></View></AppShell>;
+  if (app.screen === 'welcome') return <AppShell><WelcomeScreen onSignIn={() => { app.clearMessage(); app.setScreen('signin'); }} onSignUp={() => { app.clearMessage(); app.setScreen('signup'); }} /></AppShell>;
+  if (app.screen === 'signin' || app.screen === 'signup') return <AppShell><AuthScreen mode={app.screen} email={app.email} password={app.password} submitting={app.authSubmitting} configured={app.configured} message={app.message?.text ?? null} messageType={app.message?.type ?? 'error'} onEmailChange={app.setEmail} onPasswordChange={app.setPassword} onSubmit={() => void app.handleAuth()} onBack={() => { app.clearMessage(); app.setScreen('welcome'); }} /></AppShell>;
+  if (app.screen === 'add') return <AppShell><AddTransactionScreen entryType={app.entryType} person={app.person} amount={app.amount} dueDate={app.dueDate} saving={app.saving} note={app.note} message={app.message?.text ?? null} onEntryTypeChange={app.setEntryType} onPersonChange={app.setPerson} onAmountChange={app.setAmount} onDueDateChange={app.setDueDate} onNoteChange={app.setNote} onSave={() => void app.handleSaveTransaction()} onBack={() => { app.clearMessage(); app.setScreen('dashboard'); }} /></AppShell>;
+  if (app.screen === 'people') return <AppShell><PeopleScreen transactions={app.transactions} onBack={() => app.setScreen('dashboard')} /></AppShell>;
+  return <AppShell><DashboardScreen transactions={app.transactions} onAdd={() => { app.clearMessage(); app.setScreen('add'); }} onPeople={() => app.setScreen('people')} onSignOut={() => void app.handleSignOut()} onToggleSettled={(transaction) => void app.handleToggleSettled(transaction)} onDelete={(transaction) => void app.handleDeleteTransaction(transaction.id)} /></AppShell>;
 }
 
 function AppShell({ children }: { children: ReactNode }) {
   return <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}><StatusBar style="dark" />{children}</SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F7F6' },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: '#64748B', fontSize: 14 },
-});
+const styles = StyleSheet.create({ safeArea: { flex: 1, backgroundColor: '#F4F7F6' }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }, loadingText: { color: '#64748B', fontSize: 14 } });
