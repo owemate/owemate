@@ -1,5 +1,5 @@
 import type { Transaction } from '../types/transaction';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 function toDatabaseDate(value: string): string | null {
   const trimmed = value.trim();
@@ -13,8 +13,7 @@ function toDatabaseDate(value: string): string | null {
 
   const [, day, month, year] = match;
   const fallback = new Date(`${month} ${day}, ${year} 12:00:00`);
-  if (Number.isNaN(fallback.getTime())) return null;
-  return fallback.toISOString().slice(0, 10);
+  return Number.isNaN(fallback.getTime()) ? null : fallback.toISOString().slice(0, 10);
 }
 
 function fromDatabaseDate(value: string | null): string {
@@ -46,7 +45,10 @@ export async function fetchCloudTransactions(userId: string): Promise<Transactio
   } as Transaction));
 }
 
-export async function createCloudTransaction(userId: string, transaction: Omit<Transaction, 'id' | 'createdAt'>) {
+export async function createCloudTransaction(
+  userId: string,
+  transaction: Omit<Transaction, 'id' | 'createdAt'>,
+): Promise<Transaction> {
   if (!supabase) throw new Error('Supabase is not configured yet.');
 
   const { data, error } = await supabase
