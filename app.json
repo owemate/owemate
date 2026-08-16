@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "OweMate",
+    "slug": "owemate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "owemate",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.owemate.app"
+    },
+    "android": {
+      "package": "com.owemate.app"
+    }
+  }
+}
