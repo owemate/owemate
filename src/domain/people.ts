@@ -6,8 +6,14 @@ export type PersonSummary = {
   owed: number;
   balance: number;
   transactionCount: number;
+  pendingCount: number;
 };
 
+/**
+ * Builds each person's CURRENT outstanding position.
+ * Settled transactions remain in the record count/history but must not affect
+ * the amount currently owed or the person's balance.
+ */
 export function buildPeopleSummary(transactions: Transaction[]): PersonSummary[] {
   const byPerson = new Map<string, PersonSummary>();
 
@@ -21,16 +27,23 @@ export function buildPeopleSummary(transactions: Transaction[]): PersonSummary[]
       owed: 0,
       balance: 0,
       transactionCount: 0,
+      pendingCount: 0,
     };
 
-    if (transaction.type === 'lent') {
-      existing.lent += transaction.amount;
-    } else {
-      existing.owed += transaction.amount;
+    existing.transactionCount += 1;
+
+    // Settled records are historical only. They must never contribute to the
+    // current person balance or outstanding lent/owed totals.
+    if (transaction.status !== 'settled') {
+      existing.pendingCount += 1;
+      if (transaction.type === 'lent') {
+        existing.lent += transaction.amount;
+      } else {
+        existing.owed += transaction.amount;
+      }
+      existing.balance = existing.lent - existing.owed;
     }
 
-    existing.balance = existing.lent - existing.owed;
-    existing.transactionCount += 1;
     byPerson.set(key, existing);
   }
 
