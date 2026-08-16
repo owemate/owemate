@@ -11,38 +11,106 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export async function requestNotificationPermissions(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (current.status === 'granted') return true;
-
   const requested = await Notifications.requestPermissionsAsync();
   return requested.status === 'granted';
 }
 
-export async function scheduleDueDateReminder(transaction: Transaction): Promise<string | null> {
-  const hasPermission = await requestNotificationPermissions();
-  if (!hasPermission) return null;
+function notificationBody(transaction: Transaction, kind: 'tomorrow' | 'due' | 'overdue'): string {
+  const amount = `₹${transaction.amount.toLocaleString('en-IN')}`;
+  if (kind === 'overdue') return transaction.type === 'lent'
+    ? `${transaction.person} has an overdue repayment of ${amount}.`
+    : `Your repayment to ${transaction.person} of ${amount} is overdue.`;
+  if (kind === 'due') return transaction.type === 'lent'
+    ? `${transaction.person} is due to repay ${amount} today.`
+    : `You are due to repay ${transaction.person} ${amount} today.`;
+  return transaction.type === 'lent'
+    ? `${transaction.person} is due to repay ${amount} tomorrow.`
+    : `You are due to repay ${transaction.person} ${amount} tomorrow.`;
+}
 
-  const dueDate = parseUserDate(transaction.dueDate);
-  if (!dueDate) return null;
+function atLocalTime(date: Date, hour: number, minute = 0): Date {
+  const result = new Date(date);
+  result.setHours(hour, minute, 0, 0);
+  return result;
+}
 
-  const reminderDate = new Date(dueDate.getTime() - 24 * 60 * 60 * 1000);
-  if (reminderDate.getTime() <= Date.now()) return null;
-
+async function schedule(transaction: Transaction, date: Date, kind: 'tomorrow' | 'due' | 'overdue'): Promise<string | null> {
+  if (date.getTime() <= Date.now()) return null;
   return Notifications.scheduleNotificationAsync({
     content: {
-      title: 'OweMate reminder',
-      body:
-        transaction.type === 'lent'
-          ? `${transaction.person} is due to repay ₹${transaction.amount.toLocaleString('en-IN')} tomorrow.`
-          : `You are due to repay ${transaction.person} ₹${transaction.amount.toLocaleString('en-IN')} tomorrow.`,
-      data: { transactionId: transaction.id },
+      title: kind === 'overdue' ? 'OweMate overdue' : 'OweMate reminder',
+      body: notificationBody(transaction, kind),
+      data: { transactionId: transaction.id, kind },
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: reminderDate,
+      date,
     },
   });
+}
+
+export async function scheduleDueDateReminder(transaction: Transaction): Promise<string[]> {
+  if (transaction.status === 'settled') return [];
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return [];
+  const dueDate = parseUserDate(transaction.dueDate);
+  if (!dueDate) return [];
+
+  const scheduled: string[] = [];
+  const tomorrow = new Date(dueDate.getTime() - DAY_MS);
+  const tomorrowReminder = await schedule(transaction, tomorrow, 'tomorrow');
+  if (tomorrowReminder) scheduled.push(tomorrowReminder);
+
+  const dueReminder = atLocalTime(dueDate, 9);
+  if (dueReminder.getTime() > Date.now()) {
+    const id = await schedule(transaction, dueReminder, 'due');
+    if (id) scheduled.push(id);
+  }
+
+  return scheduled;
+}
+
+export async function syncTransactionReminders(transactions: Transaction[]): Promise<void> {
+  const permission = await Notifications.getPermissionsAsync();
+  if (permission.status !== 'granted') return;
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const ids = new Set(transactions.map((transaction) => transaction.id));
+  await Promise.all(scheduled
+    .filter((notification) => {
+      const transactionId = notification.content.data?.transactionId;
+      return typeof transactionId === 'string' && ids.has(transactionId);
+    })
+    .map((notification) => Notifications.cancelScheduledNotificationAsync(notification.identifier)));
+
+  const now = new Date();
+  for (const transaction of transactions) {
+    if (transaction.status === 'settled') continue;
+    const dueDate = parseUserDate(transaction.dueDate);
+    if (!dueDate) continue;
+
+    if (dueDate.getTime() < now.getTime()) {
+      const overdueReminder = atLocalTime(new Date(), 9);
+      if (overdueReminder.getTime() <= now.getTime()) overdueReminder.setDate(overdueReminder.getDate() + 1);
+      await schedule(transaction, overdueReminder, 'overdue');
+    } else {
+      await scheduleDueDateReminderWithoutPermissionPrompt(transaction);
+    }
+  }
+}
+
+async function scheduleDueDateReminderWithoutPermissionPrompt(transaction: Transaction): Promise<void> {
+  const dueDate = parseUserDate(transaction.dueDate);
+  if (!dueDate) return;
+  const tomorrow = new Date(dueDate.getTime() - DAY_MS);
+  await schedule(transaction, tomorrow, 'tomorrow');
+  const dueReminder = atLocalTime(dueDate, 9);
+  await schedule(transaction, dueReminder, 'due');
 }
 
 export async function cancelReminder(notificationId: string): Promise<void> {
