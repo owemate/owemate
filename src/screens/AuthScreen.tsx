@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   logoMark: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
   brandName: { color: '#10201D', fontSize: 19, fontWeight: '900' },
   eyebrow: { color: '#0F766E', fontSize: 11, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
-  title: { fontSize: 29, lineHeight: 36, fontWeight: '850', color: '#10201D' },
+  title: { fontSize: 29, lineHeight: 36, fontWeight: '800', color: '#10201D' },
   subtitle: { fontSize: 14, lineHeight: 21, color: '#6B7D79', marginTop: 10, marginBottom: 20 },
   card: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: '#E2EAE8' },
   label: { fontSize: 13, fontWeight: '800', color: '#30433F', marginBottom: 8, marginTop: 4 },
