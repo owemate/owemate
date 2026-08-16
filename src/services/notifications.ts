@@ -15,9 +15,24 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function requestNotificationPermissions(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
-  if (current.status === 'granted') return true;
+  if (current.status === 'granted') {
+    await configureAndroidChannel();
+    return true;
+  }
   const requested = await Notifications.requestPermissionsAsync();
-  return requested.status === 'granted';
+  if (requested.status !== 'granted') return false;
+  await configureAndroidChannel();
+  return true;
+}
+
+async function configureAndroidChannel(): Promise<void> {
+  if (process.env.EXPO_OS === 'android') {
+    await Notifications.setNotificationChannelAsync('repayment-reminders', {
+      name: 'Repayment reminders',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 250, 250, 250],
+    });
+  }
 }
 
 function notificationBody(transaction: Transaction, kind: 'tomorrow' | 'due' | 'overdue'): string {
@@ -46,6 +61,7 @@ async function schedule(transaction: Transaction, date: Date, kind: 'tomorrow' |
       title: kind === 'overdue' ? 'OweMate overdue' : 'OweMate reminder',
       body: notificationBody(transaction, kind),
       data: { transactionId: transaction.id, kind },
+      ...(process.env.EXPO_OS === 'android' ? { channelId: 'repayment-reminders' } : {}),
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -62,22 +78,19 @@ export async function scheduleDueDateReminder(transaction: Transaction): Promise
   if (!dueDate) return [];
 
   const scheduled: string[] = [];
-  const tomorrow = new Date(dueDate.getTime() - DAY_MS);
-  const tomorrowReminder = await schedule(transaction, tomorrow, 'tomorrow');
+  const tomorrowReminder = await schedule(transaction, new Date(dueDate.getTime() - DAY_MS), 'tomorrow');
   if (tomorrowReminder) scheduled.push(tomorrowReminder);
 
   const dueReminder = atLocalTime(dueDate, 9);
-  if (dueReminder.getTime() > Date.now()) {
-    const id = await schedule(transaction, dueReminder, 'due');
-    if (id) scheduled.push(id);
-  }
-
+  const dueNotification = await schedule(transaction, dueReminder, 'due');
+  if (dueNotification) scheduled.push(dueNotification);
   return scheduled;
 }
 
 export async function syncTransactionReminders(transactions: Transaction[]): Promise<void> {
   const permission = await Notifications.getPermissionsAsync();
   if (permission.status !== 'granted') return;
+  await configureAndroidChannel();
 
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   const ids = new Set(transactions.map((transaction) => transaction.id));
@@ -107,10 +120,8 @@ export async function syncTransactionReminders(transactions: Transaction[]): Pro
 async function scheduleDueDateReminderWithoutPermissionPrompt(transaction: Transaction): Promise<void> {
   const dueDate = parseUserDate(transaction.dueDate);
   if (!dueDate) return;
-  const tomorrow = new Date(dueDate.getTime() - DAY_MS);
-  await schedule(transaction, tomorrow, 'tomorrow');
-  const dueReminder = atLocalTime(dueDate, 9);
-  await schedule(transaction, dueReminder, 'due');
+  await schedule(transaction, new Date(dueDate.getTime() - DAY_MS), 'tomorrow');
+  await schedule(transaction, atLocalTime(dueDate, 9), 'due');
 }
 
 export async function cancelReminder(notificationId: string): Promise<void> {
