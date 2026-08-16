@@ -14,18 +14,26 @@ import {
 } from 'react-native';
 import { seedTransactions } from './src/data/transactions';
 import { PeopleScreen } from './src/components/PeopleScreen';
+import { supabase, isSupabaseConfigured } from './src/lib/supabase';
+import { signIn, signUp } from './src/services/auth';
+import { createCloudTransaction, fetchCloudTransactions } from './src/services/transactions';
 import { requestNotificationPermissions, scheduleDueDateReminder } from './src/services/notifications';
 import { loadTransactions, saveTransactions } from './src/storage/transactionStorage';
 import type { Transaction, TransactionType } from './src/types/transaction';
 
 type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
 
+type Message = { type: 'error' | 'success'; text: string } | null;
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loadingTransactions, setLoadingTransactions] = useState(true);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [submittingAuth, setSubmittingAuth] = useState(false);
+  const [message, setMessage] = useState<Message>(null);
   const [entryType, setEntryType] = useState<TransactionType>('lent');
   const [person, setPerson] = useState('');
   const [amount, setAmount] = useState('');
@@ -33,29 +41,58 @@ export default function App() {
   const [note, setNote] = useState('');
 
   useEffect(() => {
-    const hydrate = async () => {
-      try {
-        const stored = await loadTransactions();
-        if (stored) {
-          setTransactions(stored);
-        } else {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    let active = true;
+    const restoreSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (active) setSessionUserId(data.session?.user.id ?? null);
+    };
+
+    void restoreSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) setSessionUserId(nextSession?.user.id ?? null);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const hydrateTransactions = async () => {
+      if (!sessionUserId) {
+        try {
+          const stored = await loadTransactions();
+          setTransactions(stored ?? seedTransactions);
+          if (!stored) await saveTransactions(seedTransactions);
+        } catch {
           setTransactions(seedTransactions);
-          await saveTransactions(seedTransactions);
         }
+        return;
+      }
+
+      setLoadingTransactions(true);
+      setMessage(null);
+      try {
+        const cloud = await fetchCloudTransactions(sessionUserId);
+        setTransactions(cloud);
+        await saveTransactions(cloud);
       } catch {
-        setTransactions(seedTransactions);
+        setTransactions([]);
+        setMessage({ type: 'error', text: 'Could not load cloud records. Check your Supabase setup.' });
       } finally {
         setLoadingTransactions(false);
       }
     };
 
-    void hydrate();
-  }, []);
+    void hydrateTransactions();
+  }, [sessionUserId]);
 
   useEffect(() => {
-    if (loadingTransactions) return;
-    void saveTransactions(transactions);
-  }, [transactions, loadingTransactions]);
+    if (!sessionUserId && !loadingTransactions) void saveTransactions(transactions);
+  }, [transactions, sessionUserId, loadingTransactions]);
 
   const totals = useMemo(() => {
     const lent = transactions.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
@@ -73,24 +110,81 @@ export default function App() {
     setEntryType('lent');
   };
 
-  const saveTransaction = () => {
-    const numericAmount = Number(amount.replace(/,/g, ''));
-    if (!person.trim() || !numericAmount || numericAmount <= 0) return;
+  const handleAuth = async () => {
+    setMessage(null);
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      setMessage({ type: 'error', text: 'Enter your email and password.' });
+      return;
+    }
 
-    const transaction: Transaction = {
-      id: Date.now().toString(),
+    if (!isSupabaseConfigured) {
+      setMessage({ type: 'error', text: 'Supabase is not configured. Add the EXPO_PUBLIC_SUPABASE values to your local .env file.' });
+      return;
+    }
+
+    setSubmittingAuth(true);
+    try {
+      const result = screen === 'signin'
+        ? await signIn(cleanEmail, password)
+        : await signUp(cleanEmail, password);
+
+      if (result.error) throw result.error;
+
+      if (result.data.session) {
+        setScreen('dashboard');
+        setMessage({ type: 'success', text: screen === 'signin' ? 'Signed in successfully.' : 'Account created successfully.' });
+      } else {
+        setMessage({ type: 'success', text: 'Account created. Check your email if Supabase email confirmation is enabled.' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Authentication failed.' });
+    } finally {
+      setSubmittingAuth(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (supabase) await supabase.auth.signOut();
+    setSessionUserId(null);
+    setTransactions([]);
+    setMessage(null);
+    setScreen('welcome');
+  };
+
+  const saveTransaction = async () => {
+    const numericAmount = Number(amount.replace(/,/g, ''));
+    if (!person.trim() || !numericAmount || numericAmount <= 0) {
+      setMessage({ type: 'error', text: 'Enter a person and a valid amount.' });
+      return;
+    }
+
+    const draft = {
       person: person.trim(),
       amount: numericAmount,
       type: entryType,
       dueDate: dueDate.trim() || 'No date set',
       note: note.trim() || 'No note',
-      createdAt: new Date().toISOString(),
-    };
+    } satisfies Omit<Transaction, 'id' | 'createdAt'>;
 
-    setTransactions((current) => [transaction, ...current]);
-    void scheduleDueDateReminder(transaction).catch(() => undefined);
-    resetEntry();
-    setScreen('dashboard');
+    try {
+      let transaction: Transaction;
+      if (sessionUserId) {
+        transaction = await createCloudTransaction(sessionUserId, draft);
+      } else {
+        transaction = { ...draft, id: Date.now().toString(), createdAt: new Date().toISOString() };
+      }
+
+      setTransactions((current) => [transaction, ...current]);
+      if (!sessionUserId) await saveTransactions([transaction, ...transactions]);
+      await requestNotificationPermissions().catch(() => false);
+      void scheduleDueDateReminder(transaction).catch(() => undefined);
+      resetEntry();
+      setMessage({ type: 'success', text: 'Money record saved.' });
+      setScreen('dashboard');
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not save the record.' });
+    }
   };
 
   if (screen === 'welcome') {
@@ -104,9 +198,10 @@ export default function App() {
             <Text style={styles.title}>Know who owes whom.</Text>
             <Text style={styles.subtitle}>Keep track of money you lend or owe to people you know — simply and privately.</Text>
           </View>
+          {message && <MessageBanner message={message} />}
           <View style={styles.actions}>
-            <Pressable style={styles.primaryButton} onPress={() => setScreen('signin')}><Text style={styles.primaryButtonText}>Sign in</Text></Pressable>
-            <Pressable style={styles.secondaryButton} onPress={() => setScreen('signup')}><Text style={styles.secondaryButtonText}>Create account</Text></Pressable>
+            <Pressable style={styles.primaryButton} onPress={() => { setMessage(null); setScreen('signin'); }}><Text style={styles.primaryButtonText}>Sign in</Text></Pressable>
+            <Pressable style={styles.secondaryButton} onPress={() => { setMessage(null); setScreen('signup'); }}><Text style={styles.secondaryButtonText}>Create account</Text></Pressable>
           </View>
         </View>
       </SafeAreaView>
@@ -119,19 +214,22 @@ export default function App() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="dark" />
         <KeyboardAvoidingView style={styles.keyboardContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.formContainer}>
+          <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setScreen('welcome')}><Text style={styles.backButton}>‹ Back</Text></Pressable>
             <Text style={styles.formTitle}>{isSignIn ? 'Welcome back' : 'Create your account'}</Text>
             <Text style={styles.formSubtitle}>{isSignIn ? 'Sign in to continue to OweMate.' : 'Start keeping track of your money with OweMate.'}</Text>
+            {message && <MessageBanner message={message} />}
             <View style={styles.form}>
               <Text style={styles.label}>Email</Text>
-              <TextInput value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor="#94A3B8" keyboardType="email-address" autoCapitalize="none" style={styles.input} />
+              <TextInput value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor="#94A3B8" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} style={styles.input} />
               <Text style={styles.label}>Password</Text>
               <TextInput value={password} onChangeText={setPassword} placeholder="Enter your password" placeholderTextColor="#94A3B8" secureTextEntry style={styles.input} />
-              <Pressable style={styles.primaryButton} onPress={() => setScreen('dashboard')}><Text style={styles.primaryButtonText}>{isSignIn ? 'Sign in' : 'Create account'}</Text></Pressable>
-              <Text style={styles.demoHint}>Demo mode: authentication will be connected to the backend later.</Text>
+              <Pressable style={[styles.primaryButton, submittingAuth && styles.buttonDisabled]} onPress={handleAuth} disabled={submittingAuth}>
+                {submittingAuth ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>{isSignIn ? 'Sign in' : 'Create account'}</Text>}
+              </Pressable>
+              {!isSupabaseConfigured && <Text style={styles.demoHint}>Add your Supabase environment variables locally before testing authentication.</Text>}
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     );
@@ -146,6 +244,7 @@ export default function App() {
             <Pressable onPress={() => setScreen('dashboard')}><Text style={styles.backButton}>‹ Dashboard</Text></Pressable>
             <Text style={styles.formTitle}>Add money record</Text>
             <Text style={styles.formSubtitle}>Record a simple peer-to-peer money entry. This is not a loan application.</Text>
+            {message && <MessageBanner message={message} />}
             <View style={styles.segmentedControl}>
               <Pressable style={[styles.segment, entryType === 'lent' && styles.segmentActive]} onPress={() => setEntryType('lent')}><Text style={[styles.segmentText, entryType === 'lent' && styles.segmentTextActive]}>I lent</Text></Pressable>
               <Pressable style={[styles.segment, entryType === 'owed' && styles.segmentActive]} onPress={() => setEntryType('owed')}><Text style={[styles.segmentText, entryType === 'owed' && styles.segmentTextActive]}>I owe</Text></Pressable>
@@ -159,7 +258,7 @@ export default function App() {
               <TextInput value={dueDate} onChangeText={setDueDate} placeholder="e.g. 28 Aug 2026" placeholderTextColor="#94A3B8" style={styles.input} />
               <Text style={styles.label}>Note (optional)</Text>
               <TextInput value={note} onChangeText={setNote} placeholder="What was this for?" placeholderTextColor="#94A3B8" style={[styles.input, styles.multilineInput]} multiline />
-              <Pressable style={styles.primaryButton} onPress={saveTransaction}><Text style={styles.primaryButtonText}>Save record</Text></Pressable>
+              <Pressable style={styles.primaryButton} onPress={() => void saveTransaction()}><Text style={styles.primaryButtonText}>Save record</Text></Pressable>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -190,9 +289,10 @@ export default function App() {
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.dashboard}>
         <View style={styles.headerRow}>
-          <View><Text style={styles.greeting}>Good morning 👋</Text><Text style={styles.dashboardTitle}>Your money overview</Text></View>
+          <View style={{ flex: 1 }}><Text style={styles.greeting}>Good morning 👋</Text><Text style={styles.dashboardTitle}>Your money overview</Text></View>
           <Pressable style={styles.smallLogo} onPress={() => setScreen('people')}><Text style={styles.smallLogoText}>O</Text></Pressable>
         </View>
+        {message && <MessageBanner message={message} />}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Net balance</Text>
           <Text style={styles.balanceAmount}>{formatCurrency(totals.net)}</Text>
@@ -202,10 +302,13 @@ export default function App() {
           <View style={styles.summaryCard}><Text style={styles.cardLabel}>You lent</Text><Text style={styles.summaryAmount}>{formatCurrency(totals.lent)}</Text></View>
           <View style={styles.summaryCard}><Text style={styles.cardLabel}>You owe</Text><Text style={styles.summaryAmount}>{formatCurrency(totals.owed)}</Text></View>
         </View>
-        <Pressable style={styles.addButton} onPress={() => setScreen('add')}><Text style={styles.addButtonText}>＋ Add money record</Text></Pressable>
+        <Pressable style={styles.addButton} onPress={() => { setMessage(null); setScreen('add'); }}><Text style={styles.addButtonText}>＋ Add money record</Text></Pressable>
         <Pressable style={styles.peopleButton} onPress={() => setScreen('people')}><Text style={styles.peopleButtonText}>View people</Text></Pressable>
+        {sessionUserId && <Pressable style={styles.signOutButton} onPress={() => void handleSignOut()}><Text style={styles.signOutText}>Sign out</Text></Pressable>}
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent records</Text><Text style={styles.sectionCount}>{transactions.length}</Text></View>
-        {transactions.map((item) => (
+        {transactions.length === 0 ? (
+          <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No records yet</Text><Text style={styles.emptyText}>Add your first money record to start tracking.</Text></View>
+        ) : transactions.map((item) => (
           <View style={styles.transactionCard} key={item.id}>
             <View style={styles.transactionIcon}><Text style={styles.transactionIconText}>{item.person.charAt(0).toUpperCase()}</Text></View>
             <View style={styles.transactionMain}><Text style={styles.personName}>{item.person}</Text><Text style={styles.transactionNote}>{item.note}</Text><Text style={styles.dueText}>Due: {item.dueDate}</Text></View>
@@ -215,6 +318,11 @@ export default function App() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function MessageBanner({ message }: { message: Message }) {
+  if (!message) return null;
+  return <View style={[styles.messageBanner, message.type === 'error' ? styles.errorBanner : styles.successBanner]}><Text style={styles.messageText}>{message.text}</Text></View>;
 }
 
 const styles = StyleSheet.create({
@@ -231,10 +339,11 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 16, lineHeight: 25, color: '#64748B', textAlign: 'center', maxWidth: 350 },
   actions: { gap: 12 },
   primaryButton: { height: 54, borderRadius: 14, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center' },
+  buttonDisabled: { opacity: 0.6 },
   primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   secondaryButton: { height: 54, borderRadius: 14, borderWidth: 1, borderColor: '#CBD5E1', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   secondaryButtonText: { color: '#0F172A', fontSize: 16, fontWeight: '700' },
-  formContainer: { flex: 1, padding: 24 },
+  formContainer: { padding: 24, paddingBottom: 40 },
   backButton: { fontSize: 16, fontWeight: '600', color: '#475569', marginBottom: 36 },
   formTitle: { fontSize: 30, fontWeight: '800', color: '#0F172A', marginBottom: 10 },
   formSubtitle: { fontSize: 16, lineHeight: 24, color: '#64748B', marginBottom: 28 },
@@ -259,8 +368,10 @@ const styles = StyleSheet.create({
   summaryAmount: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginTop: 8 },
   addButton: { height: 54, borderRadius: 14, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   addButtonText: { color: '#0F172A', fontSize: 16, fontWeight: '800' },
-  peopleButton: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  peopleButton: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   peopleButtonText: { color: '#334155', fontSize: 15, fontWeight: '700' },
+  signOutButton: { height: 44, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
+  signOutText: { color: '#DC2626', fontSize: 14, fontWeight: '700' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
   sectionCount: { minWidth: 24, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: '#E2E8F0', color: '#475569', fontSize: 12, textAlign: 'center', overflow: 'hidden' },
@@ -280,4 +391,11 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: '#FFFFFF' },
   segmentText: { color: '#64748B', fontSize: 15, fontWeight: '700' },
   segmentTextActive: { color: '#0F172A' },
+  messageBanner: { padding: 12, borderRadius: 12, marginBottom: 16 },
+  errorBanner: { backgroundColor: '#FEE2E2' },
+  successBanner: { backgroundColor: '#DCFCE7' },
+  messageText: { color: '#334155', fontSize: 13, lineHeight: 19 },
+  emptyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 16, padding: 22, alignItems: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  emptyText: { fontSize: 13, color: '#64748B', marginTop: 6, textAlign: 'center' },
 });
