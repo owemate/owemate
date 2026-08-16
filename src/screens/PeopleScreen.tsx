@@ -1,35 +1,32 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { buildPeopleSummary } from '../domain/people';
+import { formatCurrency } from '../utils/currency';
 import type { Transaction } from '../types/transaction';
 
 type Props = {
   transactions: Transaction[];
+  onBack: () => void;
 };
 
-const formatCurrency = (value: number) => `₹${Math.abs(value).toLocaleString('en-IN')}`;
-
-export function PeopleScreen({ transactions }: Props) {
+export function PeopleScreen({ transactions, onBack }: Props) {
   const people = buildPeopleSummary(transactions);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <Pressable onPress={onBack}><Text style={styles.back}>‹ Dashboard</Text></Pressable>
       <Text style={styles.title}>People</Text>
       <Text style={styles.subtitle}>See who owes you and who you owe.</Text>
 
       {people.map((person) => (
         <View style={styles.card} key={person.person}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{person.person.charAt(0).toUpperCase()}</Text>
-          </View>
+          <View style={styles.avatar}><Text style={styles.avatarText}>{person.person.charAt(0).toUpperCase()}</Text></View>
           <View style={styles.details}>
             <Text style={styles.name}>{person.person}</Text>
             <Text style={styles.count}>{person.transactionCount} record{person.transactionCount === 1 ? '' : 's'}</Text>
           </View>
           <View style={styles.balanceBlock}>
-            <Text style={[styles.balance, person.balance < 0 && styles.negative]}>
-              {person.balance >= 0 ? '+' : '-'}{formatCurrency(person.balance)}
-            </Text>
-            <Text style={styles.balanceLabel}>{person.balance >= 0 ? 'They owe you' : 'You owe'}</Text>
+            <Text style={[styles.balance, person.balance < 0 && styles.negative]}>{person.balance >= 0 ? '+' : '-'}{formatCurrency(person.balance)}</Text>
+            <Text style={styles.balanceLabel}>{person.balance > 0 ? 'They owe you' : person.balance < 0 ? 'You owe' : 'Settled'}</Text>
           </View>
         </View>
       ))}
@@ -41,6 +38,7 @@ export function PeopleScreen({ transactions }: Props) {
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 36 },
+  back: { fontSize: 16, fontWeight: '600', color: '#475569', marginBottom: 28 },
   title: { fontSize: 28, fontWeight: '800', color: '#0F172A' },
   subtitle: { fontSize: 15, color: '#64748B', marginTop: 6, marginBottom: 20 },
   card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 16, padding: 14, marginBottom: 10 },
