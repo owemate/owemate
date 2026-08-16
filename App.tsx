@@ -13,10 +13,12 @@ import {
   View,
 } from 'react-native';
 import { seedTransactions } from './src/data/transactions';
+import { PeopleScreen } from './src/components/PeopleScreen';
+import { requestNotificationPermissions, scheduleDueDateReminder } from './src/services/notifications';
 import { loadTransactions, saveTransactions } from './src/storage/transactionStorage';
 import type { Transaction, TransactionType } from './src/types/transaction';
 
-type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add';
+type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
@@ -86,6 +88,7 @@ export default function App() {
     };
 
     setTransactions((current) => [transaction, ...current]);
+    void scheduleDueDateReminder(transaction).catch(() => undefined);
     resetEntry();
     setScreen('dashboard');
   };
@@ -164,6 +167,15 @@ export default function App() {
     );
   }
 
+  if (screen === 'people') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <PeopleScreen transactions={transactions} onBack={() => setScreen('dashboard')} />
+      </SafeAreaView>
+    );
+  }
+
   if (loadingTransactions) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -179,7 +191,7 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.dashboard}>
         <View style={styles.headerRow}>
           <View><Text style={styles.greeting}>Good morning 👋</Text><Text style={styles.dashboardTitle}>Your money overview</Text></View>
-          <View style={styles.smallLogo}><Text style={styles.smallLogoText}>O</Text></View>
+          <Pressable style={styles.smallLogo} onPress={() => setScreen('people')}><Text style={styles.smallLogoText}>O</Text></Pressable>
         </View>
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Net balance</Text>
@@ -191,6 +203,7 @@ export default function App() {
           <View style={styles.summaryCard}><Text style={styles.cardLabel}>You owe</Text><Text style={styles.summaryAmount}>{formatCurrency(totals.owed)}</Text></View>
         </View>
         <Pressable style={styles.addButton} onPress={() => setScreen('add')}><Text style={styles.addButtonText}>＋ Add money record</Text></Pressable>
+        <Pressable style={styles.peopleButton} onPress={() => setScreen('people')}><Text style={styles.peopleButtonText}>View people</Text></Pressable>
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent records</Text><Text style={styles.sectionCount}>{transactions.length}</Text></View>
         {transactions.map((item) => (
           <View style={styles.transactionCard} key={item.id}>
@@ -244,8 +257,10 @@ const styles = StyleSheet.create({
   summaryCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#E2E8F0' },
   cardLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
   summaryAmount: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginTop: 8 },
-  addButton: { height: 54, borderRadius: 14, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  addButton: { height: 54, borderRadius: 14, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   addButtonText: { color: '#0F172A', fontSize: 16, fontWeight: '800' },
+  peopleButton: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  peopleButtonText: { color: '#334155', fontSize: 15, fontWeight: '700' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
   sectionCount: { minWidth: 24, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: '#E2E8F0', color: '#475569', fontSize: 12, textAlign: 'center', overflow: 'hidden' },
