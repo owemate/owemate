@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { seedTransactions } from './src/data/transactions';
 import { PeopleScreen } from './src/components/PeopleScreen';
-import { supabase, isSupabaseConfigured } from './src/lib/supabase';
+import { supabase, isSupabaseConfigured } from './src/lib/supabaseClient';
 import { signIn, signUp } from './src/services/auth';
 import { createCloudTransaction, fetchCloudTransactions } from './src/services/transactions';
 import { requestNotificationPermissions, scheduleDueDateReminder } from './src/services/notifications';
@@ -22,7 +22,6 @@ import { loadTransactions, saveTransactions } from './src/storage/transactionSto
 import type { Transaction, TransactionType } from './src/types/transaction';
 
 type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
-
 type Message = { type: 'error' | 'success'; text: string } | null;
 
 export default function App() {
