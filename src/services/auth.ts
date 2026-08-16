@@ -10,6 +10,16 @@ export async function signIn(email: string, password: string) {
   return supabase.auth.signInWithPassword({ email, password });
 }
 
+export async function sendPasswordReset(email: string) {
+  if (!supabase) throw new Error('Supabase is not configured yet.');
+  return supabase.auth.resetPasswordForEmail(email, { redirectTo: 'owemate://reset-password' });
+}
+
+export async function updatePassword(password: string) {
+  if (!supabase) throw new Error('Supabase is not configured yet.');
+  return supabase.auth.updateUser({ password });
+}
+
 export async function signOut() {
   if (!supabase) throw new Error('Supabase is not configured yet.');
   return supabase.auth.signOut();
