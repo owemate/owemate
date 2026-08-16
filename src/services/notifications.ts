@@ -63,10 +63,7 @@ async function schedule(transaction: Transaction, date: Date, kind: 'tomorrow' |
       data: { transactionId: transaction.id, kind },
       ...(process.env.EXPO_OS === 'android' ? { channelId: 'repayment-reminders' } : {}),
     },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date,
-    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
   });
 }
 
@@ -74,32 +71,38 @@ export async function scheduleDueDateReminder(transaction: Transaction): Promise
   if (transaction.status === 'settled') return [];
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return [];
+  return scheduleDueDateReminderWithoutPermissionPrompt(transaction);
+}
+
+async function scheduleDueDateReminderWithoutPermissionPrompt(transaction: Transaction): Promise<string[]> {
   const dueDate = parseUserDate(transaction.dueDate);
   if (!dueDate) return [];
-
   const scheduled: string[] = [];
   const tomorrowReminder = await schedule(transaction, new Date(dueDate.getTime() - DAY_MS), 'tomorrow');
   if (tomorrowReminder) scheduled.push(tomorrowReminder);
-
-  const dueReminder = atLocalTime(dueDate, 9);
-  const dueNotification = await schedule(transaction, dueReminder, 'due');
+  const dueNotification = await schedule(transaction, atLocalTime(dueDate, 9), 'due');
   if (dueNotification) scheduled.push(dueNotification);
   return scheduled;
 }
 
-export async function syncTransactionReminders(transactions: Transaction[]): Promise<void> {
+export async function syncTransactionReminders(transactions: Transaction[], enabled = true): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const ids = new Set(transactions.map((transaction) => transaction.id));
+  const transactionNotifications = scheduled.filter((notification) => {
+    const transactionId = notification.content.data?.transactionId;
+    return typeof transactionId === 'string' && ids.has(transactionId);
+  });
+
+  // Always remove existing OweMate transaction reminders first. This makes
+  // turning reminders off reliable and prevents duplicate schedules on sync.
+  await Promise.all(transactionNotifications.map((notification) =>
+    Notifications.cancelScheduledNotificationAsync(notification.identifier),
+  ));
+
+  if (!enabled) return;
   const permission = await Notifications.getPermissionsAsync();
   if (permission.status !== 'granted') return;
   await configureAndroidChannel();
-
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const ids = new Set(transactions.map((transaction) => transaction.id));
-  await Promise.all(scheduled
-    .filter((notification) => {
-      const transactionId = notification.content.data?.transactionId;
-      return typeof transactionId === 'string' && ids.has(transactionId);
-    })
-    .map((notification) => Notifications.cancelScheduledNotificationAsync(notification.identifier)));
 
   const now = new Date();
   for (const transaction of transactions) {
@@ -117,11 +120,19 @@ export async function syncTransactionReminders(transactions: Transaction[]): Pro
   }
 }
 
-async function scheduleDueDateReminderWithoutPermissionPrompt(transaction: Transaction): Promise<void> {
-  const dueDate = parseUserDate(transaction.dueDate);
-  if (!dueDate) return;
-  await schedule(transaction, new Date(dueDate.getTime() - DAY_MS), 'tomorrow');
-  await schedule(transaction, atLocalTime(dueDate, 9), 'due');
+export async function scheduleTestReminder(seconds = 5): Promise<boolean> {
+  const granted = await requestNotificationPermissions();
+  if (!granted) return false;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'OweMate test reminder',
+      body: 'Notifications are working on this phone.',
+      data: { kind: 'test' },
+      ...(process.env.EXPO_OS === 'android' ? { channelId: 'repayment-reminders' } : {}),
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, repeats: false },
+  });
+  return true;
 }
 
 export async function cancelReminder(notificationId: string): Promise<void> {
