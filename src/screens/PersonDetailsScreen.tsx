@@ -7,9 +7,9 @@ type Props = { person: string; transactions: Transaction[]; onBack: () => void; 
 
 export function PersonDetailsScreen({ person, transactions, onBack, onAdd, onToggleSettled }: Props) {
   const records = transactions.filter((item) => item.person.trim().toLowerCase() === person.trim().toLowerCase());
-  const lent = records.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
-  const owed = records.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
   const pending = records.filter((item) => item.status !== 'settled');
+  const lent = pending.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
+  const owed = pending.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
   const balance = lent - owed;
 
   return <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -18,7 +18,7 @@ export function PersonDetailsScreen({ person, transactions, onBack, onAdd, onTog
       <View style={styles.avatar}><Text style={styles.avatarText}>{person.charAt(0).toUpperCase()}</Text></View>
       <Text style={styles.eyebrow}>PERSON</Text>
       <Text style={styles.title}>{person}</Text>
-      <Text style={[styles.balance, balance < 0 && styles.negative]}>{balance >= 0 ? '+' : '-'}{formatCurrency(balance)}</Text>
+      <Text style={[styles.balance, balance < 0 && styles.negative]}>{formatCurrency(Math.abs(balance))}</Text>
       <Text style={styles.balanceLabel}>{balance > 0 ? 'They owe you' : balance < 0 ? 'You owe' : 'Settled'}</Text>
     </View>
     <View style={styles.statsRow}>
