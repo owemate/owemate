@@ -1,42 +1,29 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { formatCurrency } from '../utils/currency';
 import type { Transaction } from '../types/transaction';
 
-type Props = { transactions: Transaction[]; onAdd: () => void; onPeople: () => void; onSignOut: () => void };
+type Props = { transactions: Transaction[]; onAdd: () => void; onPeople: () => void; onSignOut: () => void; onToggleSettled: (transaction: Transaction) => void; onDelete: (transaction: Transaction) => void };
 
-export function DashboardScreen({ transactions, onAdd, onPeople, onSignOut }: Props) {
-  const lent = transactions.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
-  const owed = transactions.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
+export function DashboardScreen({ transactions, onAdd, onPeople, onSignOut, onToggleSettled, onDelete }: Props) {
+  const active = transactions.filter((item) => item.status !== 'settled');
+  const settled = transactions.filter((item) => item.status === 'settled');
+  const lent = active.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
+  const owed = active.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
   const net = lent - owed;
+
+  const confirmDelete = (item: Transaction) => Alert.alert('Delete record?', `Remove the record with ${item.person}? This cannot be undone.`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => onDelete(item) }]);
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.headerText}><Text style={styles.eyebrow}>OWEMATE</Text><Text style={styles.title}>Money overview</Text><Text style={styles.greeting}>Your personal P2P tracker</Text></View>
-        <Pressable style={styles.avatarButton} onPress={onPeople}><Text style={styles.avatarButtonText}>O</Text></Pressable>
-      </View>
-
-      <View style={styles.balanceCard}>
-        <View style={styles.balanceTop}><Text style={styles.balanceLabel}>NET BALANCE</Text><View style={styles.statusDot} /></View>
-        <Text style={styles.balance}>{formatCurrency(net)}</Text>
-        <Text style={styles.balanceCaption}>{net >= 0 ? 'People owe you more than you owe.' : 'You owe more than people owe you.'}</Text>
-        <View style={styles.balanceDivider} />
-        <View style={styles.miniRow}><View><Text style={styles.miniLabel}>YOU LENT</Text><Text style={styles.miniValue}>{formatCurrency(lent)}</Text></View><View><Text style={styles.miniLabel}>YOU OWE</Text><Text style={styles.miniValue}>{formatCurrency(owed)}</Text></View></View>
-      </View>
-
-      <View style={styles.actionsRow}>
-        <Pressable style={styles.primaryAction} onPress={onAdd}><Text style={styles.actionPlus}>＋</Text><Text style={styles.primaryActionText}>Add record</Text></Pressable>
-        <Pressable style={styles.secondaryAction} onPress={onPeople}><Text style={styles.secondaryActionText}>People</Text></Pressable>
-      </View>
-
-      <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>Recent records</Text><Text style={styles.sectionSubtitle}>Your latest money activity</Text></View><View style={styles.count}><Text style={styles.countText}>{transactions.length}</Text></View></View>
-      {transactions.length === 0 ? (
-        <View style={styles.emptyCard}><View style={styles.emptyIcon}><Text style={styles.emptyIconText}>₹</Text></View><Text style={styles.emptyTitle}>Nothing here yet</Text><Text style={styles.emptyText}>Add your first record to start building a clear picture of who owes whom.</Text><Pressable style={styles.emptyButton} onPress={onAdd}><Text style={styles.emptyButtonText}>Add first record</Text></Pressable></View>
-      ) : transactions.map((item) => (
-        <View style={styles.transactionCard} key={item.id}>
-          <View style={[styles.personAvatar, item.type === 'owed' && styles.personAvatarOwed]}><Text style={styles.personAvatarText}>{item.person.charAt(0).toUpperCase()}</Text></View>
-          <View style={styles.transactionMain}><Text style={styles.person}>{item.person}</Text><Text style={styles.note} numberOfLines={1}>{item.note || 'Money record'}</Text><Text style={styles.due}>Due {item.dueDate}</Text></View>
-          <View style={styles.amountBlock}><Text style={[styles.amount, item.type === 'owed' && styles.negative]}>{item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}</Text><Text style={styles.type}>{item.type === 'lent' ? 'They owe you' : 'You owe'}</Text></View>
+      <View style={styles.header}><View style={styles.headerText}><Text style={styles.eyebrow}>OWEMATE</Text><Text style={styles.title}>Money overview</Text><Text style={styles.greeting}>Your personal P2P tracker</Text></View><Pressable style={styles.avatarButton} onPress={onPeople}><Text style={styles.avatarButtonText}>O</Text></Pressable></View>
+      <View style={styles.balanceCard}><View style={styles.balanceTop}><Text style={styles.balanceLabel}>OUTSTANDING BALANCE</Text><View style={styles.statusDot} /></View><Text style={styles.balance}>{formatCurrency(net)}</Text><Text style={styles.balanceCaption}>{net >= 0 ? 'People owe you more than you owe.' : 'You owe more than people owe you.'}</Text><View style={styles.balanceDivider} /><View style={styles.miniRow}><View><Text style={styles.miniLabel}>YOU LENT</Text><Text style={styles.miniValue}>{formatCurrency(lent)}</Text></View><View><Text style={styles.miniLabel}>YOU OWE</Text><Text style={styles.miniValue}>{formatCurrency(owed)}</Text></View><View><Text style={styles.miniLabel}>SETTLED</Text><Text style={styles.miniValue}>{settled.length}</Text></View></View></View>
+      <View style={styles.actionsRow}><Pressable style={styles.primaryAction} onPress={onAdd}><Text style={styles.actionPlus}>＋</Text><Text style={styles.primaryActionText}>Add record</Text></Pressable><Pressable style={styles.secondaryAction} onPress={onPeople}><Text style={styles.secondaryActionText}>People</Text></Pressable></View>
+      <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>Recent records</Text><Text style={styles.sectionSubtitle}>Tap an action to settle or remove a record</Text></View><View style={styles.count}><Text style={styles.countText}>{transactions.length}</Text></View></View>
+      {transactions.length === 0 ? <View style={styles.emptyCard}><View style={styles.emptyIcon}><Text style={styles.emptyIconText}>₹</Text></View><Text style={styles.emptyTitle}>Nothing here yet</Text><Text style={styles.emptyText}>Add your first record to start building a clear picture of who owes whom.</Text><Pressable style={styles.emptyButton} onPress={onAdd}><Text style={styles.emptyButtonText}>Add first record</Text></Pressable></View> : transactions.map((item) => (
+        <View style={[styles.transactionCard, item.status === 'settled' && styles.settledCard]} key={item.id}>
+          <View style={[styles.personAvatar, item.type === 'owed' && styles.personAvatarOwed, item.status === 'settled' && styles.personAvatarSettled]}><Text style={styles.personAvatarText}>{item.person.charAt(0).toUpperCase()}</Text></View>
+          <View style={styles.transactionMain}><View style={styles.personRow}><Text style={[styles.person, item.status === 'settled' && styles.struck]}>{item.person}</Text>{item.status === 'settled' && <Text style={styles.settledBadge}>SETTLED</Text>}</View><Text style={styles.note} numberOfLines={1}>{item.note || 'Money record'}</Text><Text style={styles.due}>{item.dueDate === 'No date set' ? 'No repayment date' : `Due ${item.dueDate}`}</Text><View style={styles.actionButtons}><Pressable style={[styles.smallButton, item.status === 'settled' && styles.undoButton]} onPress={() => onToggleSettled(item)}><Text style={[styles.smallButtonText, item.status === 'settled' && styles.undoText]}>{item.status === 'settled' ? 'Reopen' : 'Mark repaid'}</Text></Pressable><Pressable style={styles.deleteButton} onPress={() => confirmDelete(item)}><Text style={styles.deleteText}>Delete</Text></Pressable></View></View>
+          <View style={styles.amountBlock}><Text style={[styles.amount, item.type === 'owed' && styles.negative, item.status === 'settled' && styles.mutedAmount]}>{item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}</Text><Text style={styles.type}>{item.type === 'lent' ? 'They owe you' : 'You owe'}</Text></View>
         </View>
       ))}
       <Pressable onPress={onSignOut} style={styles.signOut}><Text style={styles.signOutText}>Sign out</Text></Pressable>
@@ -45,55 +32,7 @@ export function DashboardScreen({ transactions, onAdd, onPeople, onSignOut }: Pr
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  container: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 34 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  headerText: { flex: 1 },
-  eyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1.4, color: '#0F766E', marginBottom: 5 },
-  title: { fontSize: 27, fontWeight: '900', color: '#10201D' },
-  greeting: { fontSize: 12, color: '#7A8A87', marginTop: 3 },
-  avatarButton: { width: 46, height: 46, borderRadius: 16, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center' },
-  avatarButtonText: { color: '#0F766E', fontSize: 19, fontWeight: '900' },
-  balanceCard: { backgroundColor: '#10201D', borderRadius: 24, padding: 21, marginBottom: 14, shadowColor: '#10201D', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 9 }, elevation: 5 },
-  balanceTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  balanceLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#AFC4BF' },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#70D5C5' },
-  balance: { fontSize: 34, fontWeight: '900', color: '#FFFFFF', marginTop: 8 },
-  balanceCaption: { fontSize: 12, lineHeight: 18, color: '#AFC4BF', marginTop: 5 },
-  balanceDivider: { height: 1, backgroundColor: '#29433E', marginVertical: 16 },
-  miniRow: { flexDirection: 'row', gap: 42 },
-  miniLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: '#76908A' },
-  miniValue: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
-  actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 26 },
-  primaryAction: { flex: 1, minHeight: 52, borderRadius: 16, backgroundColor: '#0F766E', alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
-  actionPlus: { color: '#FFFFFF', fontSize: 19, fontWeight: '700', marginRight: 4 },
-  primaryActionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  secondaryAction: { minWidth: 105, minHeight: 52, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D7E2DF', alignItems: 'center', justifyContent: 'center' },
-  secondaryActionText: { color: '#29433E', fontSize: 14, fontWeight: '800' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle: { fontSize: 19, fontWeight: '900', color: '#10201D' },
-  sectionSubtitle: { fontSize: 11, color: '#8A9A96', marginTop: 3 },
-  count: { minWidth: 28, height: 28, borderRadius: 14, backgroundColor: '#E8F0EE', alignItems: 'center', justifyContent: 'center' },
-  countText: { color: '#4F635F', fontSize: 11, fontWeight: '900' },
-  transactionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, marginBottom: 9, borderWidth: 1, borderColor: '#E1EAE7' },
-  personAvatar: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  personAvatarOwed: { backgroundColor: '#FCE7E7' },
-  personAvatarText: { fontSize: 16, fontWeight: '900', color: '#0F766E' },
-  transactionMain: { flex: 1, minWidth: 0 },
-  person: { fontSize: 14, fontWeight: '900', color: '#10201D' },
-  note: { fontSize: 11, color: '#71827E', marginTop: 2 },
-  due: { fontSize: 10, color: '#9AA7A5', marginTop: 4 },
-  amountBlock: { alignItems: 'flex-end', marginLeft: 8 },
-  amount: { fontSize: 14, fontWeight: '900', color: '#16806F' },
-  negative: { color: '#C24141' },
-  type: { fontSize: 9, color: '#7A8A87', marginTop: 3 },
-  emptyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1EAE7', borderRadius: 20, padding: 24, alignItems: 'center' },
-  emptyIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  emptyIconText: { color: '#0F766E', fontSize: 20, fontWeight: '900' },
-  emptyTitle: { fontSize: 16, fontWeight: '900', color: '#10201D' },
-  emptyText: { fontSize: 12, lineHeight: 18, color: '#7A8A87', textAlign: 'center', marginTop: 5 },
-  emptyButton: { backgroundColor: '#EAF5F2', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14 },
-  emptyButtonText: { color: '#0F766E', fontSize: 12, fontWeight: '900' },
-  signOut: { alignItems: 'center', paddingVertical: 18 },
-  signOutText: { color: '#B45353', fontSize: 12, fontWeight: '800' },
+  scroll: { flex: 1 }, container: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 34 }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }, headerText: { flex: 1 }, eyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1.4, color: '#0F766E', marginBottom: 5 }, title: { fontSize: 27, fontWeight: '900', color: '#10201D' }, greeting: { fontSize: 12, color: '#7A8A87', marginTop: 3 }, avatarButton: { width: 46, height: 46, borderRadius: 16, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center' }, avatarButtonText: { color: '#0F766E', fontSize: 19, fontWeight: '900' },
+  balanceCard: { backgroundColor: '#10201D', borderRadius: 24, padding: 21, marginBottom: 14, shadowColor: '#10201D', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 9 }, elevation: 5 }, balanceTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, balanceLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#AFC4BF' }, statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#70D5C5' }, balance: { fontSize: 34, fontWeight: '900', color: '#FFFFFF', marginTop: 8 }, balanceCaption: { fontSize: 12, lineHeight: 18, color: '#AFC4BF', marginTop: 5 }, balanceDivider: { height: 1, backgroundColor: '#29433E', marginVertical: 16 }, miniRow: { flexDirection: 'row', gap: 24 }, miniLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: '#76908A' }, miniValue: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 4 }, actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 26 }, primaryAction: { flex: 1, minHeight: 52, borderRadius: 16, backgroundColor: '#0F766E', alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }, actionPlus: { color: '#FFFFFF', fontSize: 19, fontWeight: '700', marginRight: 4 }, primaryActionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, secondaryAction: { minWidth: 105, minHeight: 52, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D7E2DF', alignItems: 'center', justifyContent: 'center' }, secondaryActionText: { color: '#29433E', fontSize: 14, fontWeight: '800' }, sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }, sectionTitle: { fontSize: 19, fontWeight: '900', color: '#10201D' }, sectionSubtitle: { fontSize: 11, color: '#8A9A96', marginTop: 3 }, count: { minWidth: 28, height: 28, borderRadius: 14, backgroundColor: '#E8F0EE', alignItems: 'center', justifyContent: 'center' }, countText: { color: '#4F635F', fontSize: 11, fontWeight: '900' },
+  transactionCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, marginBottom: 9, borderWidth: 1, borderColor: '#E1EAE7' }, settledCard: { backgroundColor: '#F8FAF9', opacity: 0.86 }, personAvatar: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center', marginRight: 12 }, personAvatarOwed: { backgroundColor: '#FCE7E7' }, personAvatarSettled: { backgroundColor: '#E4ECE9' }, personAvatarText: { fontSize: 16, fontWeight: '900', color: '#0F766E' }, transactionMain: { flex: 1, minWidth: 0 }, personRow: { flexDirection: 'row', alignItems: 'center', gap: 6 }, person: { fontSize: 14, fontWeight: '900', color: '#10201D' }, struck: { textDecorationLine: 'line-through', color: '#70807C' }, settledBadge: { fontSize: 8, fontWeight: '900', color: '#47736A', backgroundColor: '#E2EFEA', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 }, note: { fontSize: 11, color: '#71827E', marginTop: 2 }, due: { fontSize: 10, color: '#9AA7A5', marginTop: 4 }, amountBlock: { alignItems: 'flex-end', marginLeft: 8 }, amount: { fontSize: 14, fontWeight: '900', color: '#16806F' }, negative: { color: '#C24141' }, mutedAmount: { color: '#81918D' }, type: { fontSize: 9, color: '#7A8A87', marginTop: 3 }, actionButtons: { flexDirection: 'row', gap: 7, marginTop: 9 }, smallButton: { backgroundColor: '#E7F4F1', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 7 }, smallButtonText: { color: '#0F766E', fontSize: 10, fontWeight: '900' }, undoButton: { backgroundColor: '#EEF2F1' }, undoText: { color: '#536762' }, deleteButton: { backgroundColor: '#FFF1F2', borderRadius: 9, paddingHorizontal: 9, paddingVertical: 7 }, deleteText: { color: '#B33A45', fontSize: 10, fontWeight: '900' }, emptyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1EAE7', borderRadius: 20, padding: 24, alignItems: 'center' }, emptyIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }, emptyIconText: { color: '#0F766E', fontSize: 20, fontWeight: '900' }, emptyTitle: { fontSize: 16, fontWeight: '900', color: '#10201D' }, emptyText: { fontSize: 12, lineHeight: 18, color: '#7A8A87', textAlign: 'center', marginTop: 5 }, emptyButton: { backgroundColor: '#EAF5F2', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14 }, emptyButtonText: { color: '#0F766E', fontSize: 12, fontWeight: '900' }, signOut: { alignItems: 'center', paddingVertical: 18 }, signOutText: { color: '#B45353', fontSize: 12, fontWeight: '800' },
 });
