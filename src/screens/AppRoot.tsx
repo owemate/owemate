@@ -14,7 +14,7 @@ export function useAppRootState() {
   const [password, setPassword] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message>(null);
@@ -25,10 +25,7 @@ export function useAppRootState() {
   const [note, setNote] = useState('');
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
 
     let active = true;
     const restoreSession = async () => {
@@ -48,21 +45,20 @@ export function useAppRootState() {
   }, []);
 
   useEffect(() => {
-    const load = async () => {
-      if (!userId) {
-        setTransactions([]);
-        setLoading(false);
-        return;
-      }
+    if (!userId) {
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
 
+    const load = async () => {
       setLoading(true);
       setMessage(null);
       try {
-        const cloud = await fetchCloudTransactions(userId);
-        setTransactions(cloud);
-      } catch {
+        setTransactions(await fetchCloudTransactions(userId));
+      } catch (error) {
         setTransactions([]);
-        setMessage({ type: 'error', text: 'Could not load your records.' });
+        setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not load your records.' });
       } finally {
         setLoading(false);
       }
@@ -81,7 +77,7 @@ export function useAppRootState() {
       return;
     }
     if (!isSupabaseConfigured) {
-      setMessage({ type: 'error', text: 'Supabase is not configured. Add the environment variables locally.' });
+      setMessage({ type: 'error', text: 'Supabase is not configured in this local environment.' });
       return;
     }
 
@@ -157,9 +153,32 @@ export function useAppRootState() {
   };
 
   return {
-    screen, setScreen, email, password, userId, transactions, loading,
-    authSubmitting, saving, message, entryType, person, amount, dueDate, note,
-    setEmail, setPassword, setEntryType, setPerson, setAmount, setDueDate, setNote,
-    clearMessage, handleAuth, handleSaveTransaction, handleSignOut,
+    screen,
+    setScreen,
+    configured: isSupabaseConfigured,
+    email,
+    password,
+    userId,
+    transactions,
+    loading,
+    authSubmitting,
+    saving,
+    message,
+    entryType,
+    person,
+    amount,
+    dueDate,
+    note,
+    setEmail,
+    setPassword,
+    setEntryType,
+    setPerson,
+    setAmount,
+    setDueDate,
+    setNote,
+    clearMessage,
+    handleAuth,
+    handleSaveTransaction,
+    handleSignOut,
   };
 }
