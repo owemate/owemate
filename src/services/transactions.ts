@@ -4,7 +4,26 @@ import { formatDatabaseDate, toDatabaseDate } from '../utils/date';
 
 const SELECT_FIELDS = 'id, person, amount, type, status, due_date, note, created_at';
 
-function mapRow(row: { id: string; person: string; amount: number | string; type: Transaction['type']; status?: Transaction['status']; due_date: string | null; note: string | null; created_at: string }): Transaction {
+type TransactionRow = {
+  id: string;
+  person: string;
+  amount: number | string;
+  type: Transaction['type'];
+  status?: Transaction['status'];
+  due_date: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+function requireSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase is not configured yet.');
+  }
+
+  return supabase;
+}
+
+function mapRow(row: TransactionRow): Transaction {
   return {
     id: row.id,
     person: row.person,
@@ -18,27 +37,65 @@ function mapRow(row: { id: string; person: string; amount: number | string; type
 }
 
 export async function fetchCloudTransactions(userId: string): Promise<Transaction[]> {
-  if (!supabase) throw new Error('Supabase is not configured yet.');
-  const { data, error } = await supabase.from('transactions').select(SELECT_FIELDS).eq('user_id', userId).order('created_at', { ascending: false });
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from('transactions')
+    .select(SELECT_FIELDS)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
   if (error) throw error;
-  return (data ?? []).map((row) => mapRow(row));
+  return (data ?? []).map((row) => mapRow(row as TransactionRow));
 }
 
-export async function createCloudTransaction(userId: string, transaction: Omit<Transaction, 'id' | 'createdAt' | 'status'>): Promise<Transaction> {
-  if (!supabase) throw new Error('Supabase is not configured yet.');
-  const { data, error } = await supabase.from('transactions').insert({ user_id: userId, person: transaction.person, amount: transaction.amount, type: transaction.type, status: 'pending', due_date: toDatabaseDate(transaction.dueDate), note: transaction.note || null }).select(SELECT_FIELDS).single();
+export async function createCloudTransaction(
+  userId: string,
+  transaction: Omit<Transaction, 'id' | 'createdAt' | 'status'>,
+): Promise<Transaction> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from('transactions')
+    .insert({
+      user_id: userId,
+      person: transaction.person,
+      amount: transaction.amount,
+      type: transaction.type,
+      status: 'pending',
+      due_date: toDatabaseDate(transaction.dueDate),
+      note: transaction.note || null,
+    })
+    .select(SELECT_FIELDS)
+    .single();
+
   if (error) throw error;
-  return mapRow(data);
+  return mapRow(data as TransactionRow);
 }
 
-export async function updateTransactionStatus(userId: string, transactionId: string, status: Transaction['status']): Promise<void> {
-  if (!supabase) throw new Error('Supabase is not configured yet.');
-  const { error } = await supabase.from('transactions').update({ status }).eq('id', transactionId).eq('user_id', userId);
+export async function updateTransactionStatus(
+  userId: string,
+  transactionId: string,
+  status: Transaction['status'],
+): Promise<void> {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('transactions')
+    .update({ status })
+    .eq('id', transactionId)
+    .eq('user_id', userId);
+
   if (error) throw error;
 }
 
-export async function deleteCloudTransaction(userId: string, transactionId: string): Promise<void> {
-  if (!supabase) throw new Error('Supabase is not configured yet.');
-  const { error } = await supabase.from('transactions').delete().eq('id', transactionId).eq('user_id', userId);
+export async function deleteCloudTransaction(
+  userId: string,
+  transactionId: string,
+): Promise<void> {
+  const client = requireSupabase();
+  const { error } = await client
+    .from('transactions')
+    .delete()
+    .eq('id', transactionId)
+    .eq('user_id', userId);
+
   if (error) throw error;
 }
