@@ -1,1 +1,0 @@
-export { useAppRootState } from './AppRoot';
