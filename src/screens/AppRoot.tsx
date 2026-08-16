@@ -1,0 +1,159 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import type { Transaction, TransactionType } from '../types/transaction';
+import { seedTransactions } from '../data/transactions';
+import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
+import { signIn, signUp } from '../services/auth';
+import { createCloudTransaction, fetchCloudTransactions } from '../services/transactions';
+import { requestNotificationPermissions, scheduleDueDateReminder } from '../services/notifications';
+import { loadTransactions, saveTransactions } from '../storage/transactionStorage';
+
+type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
+type Message = { type: 'error' | 'success'; text: string } | null;
+
+export function useAppRootState() {
+  const [screen, setScreen] = useState<Screen>('welcome');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<Message>(null);
+  const [entryType, setEntryType] = useState<TransactionType>('lent');
+  const [person, setPerson] = useState('');
+  const [amount, setAmount] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    const restoreSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (active) setUserId(data.session?.user.id ?? null);
+    };
+
+    void restoreSession();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) setUserId(session?.user.id ?? null);
+    });
+
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setMessage(null);
+      try {
+        if (userId) {
+          const cloud = await fetchCloudTransactions(userId);
+          setTransactions(cloud);
+          await saveTransactions(cloud);
+        } else {
+          const stored = await loadTransactions();
+          const local = stored ?? seedTransactions;
+          setTransactions(local);
+          if (!stored) await saveTransactions(local);
+        }
+      } catch {
+        setTransactions([]);
+        setMessage({ type: 'error', text: 'Could not load your records.' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [userId]);
+
+  const clearMessage = () => setMessage(null);
+
+  const handleAuth = async () => {
+    clearMessage();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      setMessage({ type: 'error', text: 'Enter your email and password.' });
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      setMessage({ type: 'error', text: 'Supabase is not configured. Add the environment variables locally.' });
+      return;
+    }
+
+    setAuthSubmitting(true);
+    try {
+      const result = screen === 'signin' ? await signIn(cleanEmail, password) : await signUp(cleanEmail, password);
+      if (result.error) throw result.error;
+      if (result.data.session) {
+        setScreen('dashboard');
+        setMessage({ type: 'success', text: screen === 'signin' ? 'Signed in successfully.' : 'Account created successfully.' });
+      } else {
+        setMessage({ type: 'success', text: 'Account created. Check your email if confirmation is enabled.' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Authentication failed.' });
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const resetEntry = () => {
+    setPerson('');
+    setAmount('');
+    setDueDate('');
+    setNote('');
+    setEntryType('lent');
+  };
+
+  const handleSaveTransaction = async () => {
+    clearMessage();
+    const numericAmount = Number(amount.replace(/,/g, ''));
+    if (!person.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setMessage({ type: 'error', text: 'Enter a person and a valid amount.' });
+      return;
+    }
+
+    const draft = { person: person.trim(), amount: numericAmount, type: entryType, dueDate: dueDate.trim() || 'No date set', note: note.trim() || 'No note' } satisfies Omit<Transaction, 'id' | 'createdAt'>;
+    setSaving(true);
+    try {
+      const transaction = userId
+        ? await createCloudTransaction(userId, draft)
+        : { ...draft, id: Date.now().toString(), createdAt: new Date().toISOString() };
+
+      const next = [transaction, ...transactions];
+      setTransactions(next);
+      if (!userId) await saveTransactions(next);
+      await requestNotificationPermissions().catch(() => false);
+      void scheduleDueDateReminder(transaction).catch(() => undefined);
+      resetEntry();
+      setMessage({ type: 'success', text: 'Money record saved.' });
+      setScreen('dashboard');
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Could not save the record.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (supabase) await supabase.auth.signOut();
+    setUserId(null);
+    setTransactions([]);
+    setScreen('welcome');
+    clearMessage();
+  };
+
+  return { screen, setScreen, email, password, userId, transactions, loading, authSubmitting, saving, message, entryType, person, amount, dueDate, note, setEmail, setPassword, setEntryType, setPerson, setAmount, setDueDate, setNote, clearMessage, handleAuth, handleSaveTransaction, handleSignOut, resetEntry };
+}
+
+export type AppRootState = ReturnType<typeof useAppRootState>;
+export type AppShellProps = { children: ReactNode };
