@@ -3,7 +3,7 @@ import type { Transaction, TransactionType } from '../types/transaction';
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 import { signIn, signUp } from '../services/auth';
 import { createCloudTransaction, deleteCloudTransaction, fetchCloudTransactions, updateTransactionStatus } from '../services/transactions';
-import { scheduleDueDateReminder } from '../services/notifications';
+import { scheduleDueDateReminder, syncTransactionReminders } from '../services/notifications';
 import { isValidUserDate } from '../utils/date';
 
 type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people' | 'personDetails';
@@ -48,7 +48,7 @@ export function useAppRootState() {
 
   useEffect(() => {
     if (!userId) { setTransactions([]); setLoading(false); return; }
-    const load = async () => { setLoading(true); setMessage(null); try { setTransactions(await fetchCloudTransactions(userId)); } catch (error) { setTransactions([]); setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not load your records.') }); } finally { setLoading(false); } };
+    const load = async () => { setLoading(true); setMessage(null); try { const loaded = await fetchCloudTransactions(userId); setTransactions(loaded); void syncTransactionReminders(loaded).catch(() => undefined); } catch (error) { setTransactions([]); setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not load your records.') }); } finally { setLoading(false); } };
     void load();
   }, [userId]);
 
@@ -72,7 +72,7 @@ export function useAppRootState() {
     if (cleanDueDate && !isValidUserDate(cleanDueDate)) { setMessage({ type: 'error', text: 'Enter a valid commitment date, for example 28 Aug 2026.' }); return; }
     const draft = { person: person.trim(), amount: numericAmount, type: entryType, dueDate: cleanDueDate || 'No date set', note: note.trim() || 'No note' } satisfies Omit<Transaction, 'id' | 'createdAt' | 'status'>;
     setSaving(true);
-    try { const transaction = await createCloudTransaction(userId, draft); setTransactions((current) => [transaction, ...current]); void scheduleDueDateReminder(transaction).catch(() => undefined); const destination = addReturnScreen; resetEntry(); setMessage({ type: 'success', text: 'Money record saved.' }); setScreen(destination); setAddReturnScreen('dashboard'); }
+    try { const transaction = await createCloudTransaction(userId, draft); const nextTransactions = [transaction, ...transactions]; setTransactions(nextTransactions); void scheduleDueDateReminder(transaction).catch(() => undefined); void syncTransactionReminders(nextTransactions).catch(() => undefined); const destination = addReturnScreen; resetEntry(); setMessage({ type: 'success', text: 'Money record saved.' }); setScreen(destination); setAddReturnScreen('dashboard'); }
     catch (error) { setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not save the record.') }); }
     finally { setSaving(false); }
   };
@@ -80,12 +80,12 @@ export function useAppRootState() {
   const handleToggleSettled = async (transaction: Transaction) => {
     if (!userId) return;
     const nextStatus = transaction.status === 'settled' ? 'pending' : 'settled';
-    try { await updateTransactionStatus(userId, transaction.id, nextStatus); setTransactions((current) => current.map((item) => item.id === transaction.id ? { ...item, status: nextStatus } : item)); setMessage({ type: 'success', text: nextStatus === 'settled' ? 'Record marked as repaid.' : 'Record reopened.' }); }
+    try { await updateTransactionStatus(userId, transaction.id, nextStatus); const nextTransactions = transactions.map((item) => item.id === transaction.id ? { ...item, status: nextStatus } : item); setTransactions(nextTransactions); void syncTransactionReminders(nextTransactions).catch(() => undefined); setMessage({ type: 'success', text: nextStatus === 'settled' ? 'Record marked as repaid.' : 'Record reopened.' }); }
     catch (error) { setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not update the record.') }); }
   };
   const handleDeleteTransaction = async (transactionId: string) => {
     if (!userId) return;
-    try { await deleteCloudTransaction(userId, transactionId); setTransactions((current) => current.filter((item) => item.id !== transactionId)); }
+    try { await deleteCloudTransaction(userId, transactionId); const nextTransactions = transactions.filter((item) => item.id !== transactionId); setTransactions(nextTransactions); void syncTransactionReminders(nextTransactions).catch(() => undefined); }
     catch (error) { setMessage({ type: 'error', text: getSupabaseErrorMessage(error, 'Could not delete the record.') }); }
   };
   const handleSignOut = async () => { if (supabase) await supabase.auth.signOut(); setUserId(null); setTransactions([]); setScreen('welcome'); clearMessage(); };
