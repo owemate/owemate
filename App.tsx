@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AddTransactionScreen } from './src/screens/AddTransactionScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
@@ -9,12 +10,33 @@ import { PeopleScreen } from './src/screens/PeopleScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { useAppRootState } from './src/screens/AppRoot';
 
+type AppScreen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
+
 export default function App() {
   return <SafeAreaProvider><AppContent /></SafeAreaProvider>;
 }
 
 function AppContent() {
   const app = useAppRootState();
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      const previousScreen: Partial<Record<AppScreen, AppScreen>> = {
+        signin: 'welcome',
+        signup: 'welcome',
+        add: 'dashboard',
+        people: 'dashboard',
+      };
+      const previous = previousScreen[app.screen];
+      if (!previous) return false;
+      app.clearMessage();
+      app.setScreen(previous);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [app.screen, app.clearMessage, app.setScreen]);
+
   if (app.loading) return <AppShell><View style={styles.loading}><ActivityIndicator size="large" color="#0F766E" /><Text style={styles.loadingText}>Loading OweMate…</Text></View></AppShell>;
   if (app.screen === 'welcome') return <AppShell><WelcomeScreen onSignIn={() => { app.clearMessage(); app.setScreen('signin'); }} onSignUp={() => { app.clearMessage(); app.setScreen('signup'); }} /></AppShell>;
   if (app.screen === 'signin' || app.screen === 'signup') return <AppShell><AuthScreen mode={app.screen} email={app.email} password={app.password} submitting={app.authSubmitting} configured={app.configured} message={app.message?.text ?? null} messageType={app.message?.type ?? 'error'} onEmailChange={app.setEmail} onPasswordChange={app.setPassword} onSubmit={() => void app.handleAuth()} onBack={() => { app.clearMessage(); app.setScreen('welcome'); }} /></AppShell>;
