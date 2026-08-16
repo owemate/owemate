@@ -2,7 +2,7 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useMemo, useState } from 'react';
 import type { TransactionType } from '../types/transaction';
-import { parseUserDate } from '../utils/date';
+import { formatDatabaseDate, parseUserDate } from '../utils/date';
 
 type Props = {
   entryType: TransactionType;
@@ -28,7 +28,13 @@ export function AddTransactionScreen({ entryType, person, amount, dueDate, note,
   const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     if (event.type === 'dismissed' || !date) return;
-    onDueDateChange(date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
+
+    // Keep the selected date in an unambiguous ISO format internally.
+    // This avoids locale-dependent strings such as 18/12/2026 failing validation.
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    onDueDateChange(`${year}-${month}-${day}`);
   };
 
   return (
@@ -53,7 +59,7 @@ export function AddTransactionScreen({ entryType, person, amount, dueDate, note,
           <View style={styles.amountInput}><Text style={styles.currency}>₹</Text><TextInput value={amount} onChangeText={onAmountChange} placeholder="0" placeholderTextColor="#9AA7A5" keyboardType="decimal-pad" style={styles.amountField} /></View>
           <Text style={styles.label}>Commitment / repayment date</Text>
           <Pressable style={styles.dateField} onPress={() => setShowDatePicker(true)}>
-            <View><Text style={styles.dateValue}>{dueDate || 'Choose a date'}</Text><Text style={styles.dateHint}>Tap to open the native calendar</Text></View>
+            <View><Text style={styles.dateValue}>{dueDate ? formatDatabaseDate(dueDate) : 'Choose a date'}</Text><Text style={styles.dateHint}>Tap to open the native calendar</Text></View>
             <Text style={styles.calendarIcon}>▣</Text>
           </Pressable>
           {showDatePicker && <DateTimePicker value={selectedDate} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'calendar'} minimumDate={new Date()} onChange={handleDateChange} />}
