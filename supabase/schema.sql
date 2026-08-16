@@ -7,32 +7,21 @@ create table if not exists public.transactions (
   person text not null,
   amount numeric(12,2) not null check (amount > 0),
   type text not null check (type in ('lent', 'owed')),
+  status text not null default 'pending' check (status in ('pending', 'settled')),
   due_date date,
   note text,
   created_at timestamptz not null default now()
 );
 
-create index if not exists transactions_user_id_idx
-  on public.transactions(user_id);
+alter table public.transactions add column if not exists status text not null default 'pending';
 
-create index if not exists transactions_due_date_idx
-  on public.transactions(user_id, due_date);
+create index if not exists transactions_user_id_idx on public.transactions(user_id);
+create index if not exists transactions_due_date_idx on public.transactions(user_id, due_date);
+create index if not exists transactions_status_idx on public.transactions(user_id, status);
 
 alter table public.transactions enable row level security;
 
-create policy "Users can read their own transactions"
-  on public.transactions for select
-  using (auth.uid() = user_id);
-
-create policy "Users can create their own transactions"
-  on public.transactions for insert
-  with check (auth.uid() = user_id);
-
-create policy "Users can update their own transactions"
-  on public.transactions for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-create policy "Users can delete their own transactions"
-  on public.transactions for delete
-  using (auth.uid() = user_id);
+create policy "Users can read their own transactions" on public.transactions for select using (auth.uid() = user_id);
+create policy "Users can create their own transactions" on public.transactions for insert with check (auth.uid() = user_id);
+create policy "Users can update their own transactions" on public.transactions for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users can delete their own transactions" on public.transactions for delete using (auth.uid() = user_id);
