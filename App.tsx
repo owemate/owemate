@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -18,6 +19,29 @@ export default function App() { return <SafeAreaProvider><AppContent /></SafeAre
 function AppContent() {
   const app = useAppRootState();
   const [personScreen, setPersonScreen] = useState<string | null>(null);
+  const [pendingNotificationId, setPendingNotificationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+      const transactionId = response.notification.request.content.data?.transactionId;
+      if (typeof transactionId === 'string') setPendingNotificationId(transactionId);
+    };
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) handleNotificationResponse(response);
+    });
+    return () => responseSubscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!pendingNotificationId || !app.transactions.length) return;
+    const transaction = app.transactions.find((item) => item.id === pendingNotificationId);
+    if (!transaction) return;
+    setPersonScreen(transaction.person);
+    app.clearMessage();
+    app.setScreen('personDetails');
+    setPendingNotificationId(null);
+  }, [pendingNotificationId, app.transactions, app.clearMessage, app.setScreen]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
