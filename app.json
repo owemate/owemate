@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "owemate",
+    "plugins": ["expo-notifications"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.owemate.app"
