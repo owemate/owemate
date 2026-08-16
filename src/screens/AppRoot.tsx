@@ -1,11 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import type { Transaction, TransactionType } from '../types/transaction';
-import { seedTransactions } from '../data/transactions';
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 import { signIn, signUp } from '../services/auth';
 import { createCloudTransaction, fetchCloudTransactions } from '../services/transactions';
 import { requestNotificationPermissions, scheduleDueDateReminder } from '../services/notifications';
-import { loadTransactions, saveTransactions } from '../storage/transactionStorage';
 
 type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
 type Message = { type: 'error' | 'success'; text: string } | null;
@@ -51,19 +49,17 @@ export function useAppRootState() {
 
   useEffect(() => {
     const load = async () => {
+      if (!userId) {
+        setTransactions([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setMessage(null);
       try {
-        if (userId) {
-          const cloud = await fetchCloudTransactions(userId);
-          setTransactions(cloud);
-          await saveTransactions(cloud);
-        } else {
-          const stored = await loadTransactions();
-          const local = stored ?? seedTransactions;
-          setTransactions(local);
-          if (!stored) await saveTransactions(local);
-        }
+        const cloud = await fetchCloudTransactions(userId);
+        setTransactions(cloud);
       } catch {
         setTransactions([]);
         setMessage({ type: 'error', text: 'Could not load your records.' });
@@ -117,21 +113,29 @@ export function useAppRootState() {
   const handleSaveTransaction = async () => {
     clearMessage();
     const numericAmount = Number(amount.replace(/,/g, ''));
+
+    if (!userId) {
+      setMessage({ type: 'error', text: 'Please sign in before adding a money record.' });
+      setScreen('signin');
+      return;
+    }
     if (!person.trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
       setMessage({ type: 'error', text: 'Enter a person and a valid amount.' });
       return;
     }
 
-    const draft = { person: person.trim(), amount: numericAmount, type: entryType, dueDate: dueDate.trim() || 'No date set', note: note.trim() || 'No note' } satisfies Omit<Transaction, 'id' | 'createdAt'>;
+    const draft = {
+      person: person.trim(),
+      amount: numericAmount,
+      type: entryType,
+      dueDate: dueDate.trim() || 'No date set',
+      note: note.trim() || 'No note',
+    } satisfies Omit<Transaction, 'id' | 'createdAt'>;
+
     setSaving(true);
     try {
-      const transaction = userId
-        ? await createCloudTransaction(userId, draft)
-        : { ...draft, id: Date.now().toString(), createdAt: new Date().toISOString() };
-
-      const next = [transaction, ...transactions];
-      setTransactions(next);
-      if (!userId) await saveTransactions(next);
+      const transaction = await createCloudTransaction(userId, draft);
+      setTransactions((current) => [transaction, ...current]);
       await requestNotificationPermissions().catch(() => false);
       void scheduleDueDateReminder(transaction).catch(() => undefined);
       resetEntry();
@@ -152,8 +156,10 @@ export function useAppRootState() {
     clearMessage();
   };
 
-  return { screen, setScreen, email, password, userId, transactions, loading, authSubmitting, saving, message, entryType, person, amount, dueDate, note, setEmail, setPassword, setEntryType, setPerson, setAmount, setDueDate, setNote, clearMessage, handleAuth, handleSaveTransaction, handleSignOut, resetEntry };
+  return {
+    screen, setScreen, email, password, userId, transactions, loading,
+    authSubmitting, saving, message, entryType, person, amount, dueDate, note,
+    setEmail, setPassword, setEntryType, setPerson, setAmount, setDueDate, setNote,
+    clearMessage, handleAuth, handleSaveTransaction, handleSignOut,
+  };
 }
-
-export type AppRootState = ReturnType<typeof useAppRootState>;
-export type AppShellProps = { children: ReactNode };
