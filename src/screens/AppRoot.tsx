@@ -3,7 +3,8 @@ import type { Transaction, TransactionType } from '../types/transaction';
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 import { signIn, signUp } from '../services/auth';
 import { createCloudTransaction, fetchCloudTransactions } from '../services/transactions';
-import { requestNotificationPermissions, scheduleDueDateReminder } from '../services/notifications';
+import { scheduleDueDateReminder } from '../services/notifications';
+import { isValidUserDate } from '../utils/date';
 
 type Screen = 'welcome' | 'signin' | 'signup' | 'dashboard' | 'add' | 'people';
 type Message = { type: 'error' | 'success'; text: string } | null;
@@ -109,6 +110,7 @@ export function useAppRootState() {
   const handleSaveTransaction = async () => {
     clearMessage();
     const numericAmount = Number(amount.replace(/,/g, ''));
+    const cleanDueDate = dueDate.trim();
 
     if (!userId) {
       setMessage({ type: 'error', text: 'Please sign in before adding a money record.' });
@@ -119,12 +121,16 @@ export function useAppRootState() {
       setMessage({ type: 'error', text: 'Enter a person and a valid amount.' });
       return;
     }
+    if (cleanDueDate && !isValidUserDate(cleanDueDate)) {
+      setMessage({ type: 'error', text: 'Enter a valid commitment date, for example 28 Aug 2026.' });
+      return;
+    }
 
     const draft = {
       person: person.trim(),
       amount: numericAmount,
       type: entryType,
-      dueDate: dueDate.trim() || 'No date set',
+      dueDate: cleanDueDate || 'No date set',
       note: note.trim() || 'No note',
     } satisfies Omit<Transaction, 'id' | 'createdAt'>;
 
@@ -132,7 +138,6 @@ export function useAppRootState() {
     try {
       const transaction = await createCloudTransaction(userId, draft);
       setTransactions((current) => [transaction, ...current]);
-      await requestNotificationPermissions().catch(() => false);
       void scheduleDueDateReminder(transaction).catch(() => undefined);
       resetEntry();
       setMessage({ type: 'success', text: 'Money record saved.' });
