@@ -1,5 +1,8 @@
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
 import type { TransactionType } from '../types/transaction';
+import { formatDatabaseDate, parseUserDate } from '../utils/date';
 
 type Props = {
   entryType: TransactionType;
@@ -19,31 +22,52 @@ type Props = {
 };
 
 export function AddTransactionScreen({ entryType, person, amount, dueDate, note, saving, message, onEntryTypeChange, onPersonChange, onAmountChange, onDueDateChange, onNoteChange, onSave, onBack }: Props) {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const selectedDate = useMemo(() => parseUserDate(dueDate) ?? new Date(), [dueDate]);
+
+  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (event.type === 'dismissed' || !date) return;
+
+    // Keep the selected date in an unambiguous ISO format internally.
+    // This avoids locale-dependent strings such as 18/12/2026 failing validation.
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    onDueDateChange(`${year}-${month}-${day}`);
+  };
+
   return (
-    <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={onBack}><Text style={styles.back}>‹ Dashboard</Text></Pressable>
-        <Text style={styles.title}>Add money record</Text>
-        <Text style={styles.subtitle}>Record a simple peer-to-peer money entry. This is not a loan application.</Text>
+    <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 4 : 0}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
+        <Pressable onPress={onBack} hitSlop={10}><Text style={styles.back}>‹  Dashboard</Text></Pressable>
+        <View style={styles.titleRow}><View><Text style={styles.eyebrow}>NEW RECORD</Text><Text style={styles.title}>Add money record</Text></View><View style={styles.iconBadge}><Text style={styles.iconText}>₹</Text></View></View>
+        <Text style={styles.subtitle}>Track a personal money entry and its repayment date. OweMate is not a loan application.</Text>
 
         {message && <View style={styles.message}><Text style={styles.messageText}>{message}</Text></View>}
 
-        <View style={styles.segmented}>
-          <Pressable style={[styles.segment, entryType === 'lent' && styles.activeSegment]} onPress={() => onEntryTypeChange('lent')}><Text style={[styles.segmentText, entryType === 'lent' && styles.activeText]}>I lent</Text></Pressable>
-          <Pressable style={[styles.segment, entryType === 'owed' && styles.activeSegment]} onPress={() => onEntryTypeChange('owed')}><Text style={[styles.segmentText, entryType === 'owed' && styles.activeText]}>I owe</Text></Pressable>
+        <View style={styles.card}>
+          <Text style={styles.label}>What happened?</Text>
+          <View style={styles.segmented}>
+            <Pressable style={[styles.segment, entryType === 'lent' && styles.activeSegment]} onPress={() => onEntryTypeChange('lent')}><Text style={[styles.segmentText, entryType === 'lent' && styles.activeText]}>I lent money</Text></Pressable>
+            <Pressable style={[styles.segment, entryType === 'owed' && styles.activeSegment]} onPress={() => onEntryTypeChange('owed')}><Text style={[styles.segmentText, entryType === 'owed' && styles.activeText]}>I owe money</Text></Pressable>
+          </View>
+
+          <Text style={styles.label}>Person</Text>
+          <TextInput value={person} onChangeText={onPersonChange} placeholder="e.g. Aarav" placeholderTextColor="#9AA7A5" style={styles.input} returnKeyType="next" />
+          <Text style={styles.label}>Amount</Text>
+          <View style={styles.amountInput}><Text style={styles.currency}>₹</Text><TextInput value={amount} onChangeText={onAmountChange} placeholder="0" placeholderTextColor="#9AA7A5" keyboardType="decimal-pad" style={styles.amountField} /></View>
+          <Text style={styles.label}>Commitment / repayment date</Text>
+          <Pressable style={styles.dateField} onPress={() => setShowDatePicker(true)}>
+            <View><Text style={styles.dateValue}>{dueDate ? formatDatabaseDate(dueDate) : 'Choose a date'}</Text><Text style={styles.dateHint}>Tap to open the native calendar</Text></View>
+            <Text style={styles.calendarIcon}>▣</Text>
+          </Pressable>
+          {showDatePicker && <DateTimePicker value={selectedDate} mode="date" display={Platform.OS === 'ios' ? 'compact' : 'calendar'} minimumDate={new Date()} onChange={handleDateChange} />}
+          <Text style={styles.label}>Note <Text style={styles.optional}>(optional)</Text></Text>
+          <TextInput value={note} onChangeText={onNoteChange} placeholder="What was this for?" placeholderTextColor="#9AA7A5" style={[styles.input, styles.multiline]} multiline textAlignVertical="top" />
         </View>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Person</Text>
-          <TextInput value={person} onChangeText={onPersonChange} placeholder="e.g. Aarav" placeholderTextColor="#94A3B8" style={styles.input} />
-          <Text style={styles.label}>Amount (₹)</Text>
-          <TextInput value={amount} onChangeText={onAmountChange} placeholder="0" placeholderTextColor="#94A3B8" keyboardType="numeric" style={styles.input} />
-          <Text style={styles.label}>Commitment / repayment date</Text>
-          <TextInput value={dueDate} onChangeText={onDueDateChange} placeholder="e.g. 28 Aug 2026" placeholderTextColor="#94A3B8" style={styles.input} />
-          <Text style={styles.label}>Note (optional)</Text>
-          <TextInput value={note} onChangeText={onNoteChange} placeholder="What was this for?" placeholderTextColor="#94A3B8" style={[styles.input, styles.multiline]} multiline />
-          <Pressable style={[styles.button, saving && styles.disabled]} onPress={onSave} disabled={saving}><Text style={styles.buttonText}>{saving ? 'Saving…' : 'Save record'}</Text></Pressable>
-        </View>
+        <Pressable style={[styles.button, saving && styles.disabled]} onPress={onSave} disabled={saving}><Text style={styles.buttonText}>{saving ? 'Saving…' : 'Save record'}</Text><Text style={styles.buttonArrow}>→</Text></Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -51,22 +75,36 @@ export function AddTransactionScreen({ entryType, person, amount, dueDate, note,
 
 const styles = StyleSheet.create({
   keyboard: { flex: 1 },
-  container: { padding: 24, paddingBottom: 40 },
-  back: { fontSize: 16, fontWeight: '600', color: '#475569', marginBottom: 36 },
-  title: { fontSize: 30, fontWeight: '800', color: '#0F172A', marginBottom: 10 },
-  subtitle: { fontSize: 16, lineHeight: 24, color: '#64748B', marginBottom: 28 },
-  message: { backgroundColor: '#FEE2E2', padding: 12, borderRadius: 12, marginBottom: 16 },
-  messageText: { color: '#334155', fontSize: 13, lineHeight: 19 },
-  segmented: { flexDirection: 'row', backgroundColor: '#E2E8F0', borderRadius: 14, padding: 4, marginBottom: 18 },
-  segment: { flex: 1, height: 46, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  activeSegment: { backgroundColor: '#FFFFFF' },
-  segmentText: { color: '#64748B', fontSize: 15, fontWeight: '700' },
-  activeText: { color: '#0F172A' },
-  form: { gap: 10 },
-  label: { fontSize: 14, fontWeight: '700', color: '#334155', marginTop: 8 },
-  input: { height: 52, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 12, paddingHorizontal: 16, fontSize: 16, color: '#0F172A', backgroundColor: '#FFFFFF', marginBottom: 6 },
-  multiline: { height: 90, paddingTop: 14, textAlignVertical: 'top' },
-  button: { height: 54, borderRadius: 14, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  scroll: { flex: 1 },
+  container: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 44 },
+  back: { color: '#4F635F', fontSize: 15, fontWeight: '700', marginBottom: 22 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  eyebrow: { color: '#0F766E', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 6 },
+  title: { fontSize: 30, lineHeight: 36, fontWeight: '800', color: '#10201D' },
+  iconBadge: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center' },
+  iconText: { color: '#0F766E', fontSize: 22, fontWeight: '800' },
+  subtitle: { fontSize: 14, lineHeight: 21, color: '#6B7D79', marginTop: 10, marginBottom: 18 },
+  message: { backgroundColor: '#FFF1F2', borderRadius: 14, padding: 13, marginBottom: 14 },
+  messageText: { color: '#7F1D1D', fontSize: 13, lineHeight: 19 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: '#E2EAE8', shadowColor: '#17312C', shadowOpacity: 0.05, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 2 },
+  label: { fontSize: 13, fontWeight: '800', color: '#30433F', marginBottom: 8, marginTop: 8 },
+  optional: { color: '#9AA7A5', fontWeight: '600' },
+  segmented: { flexDirection: 'row', backgroundColor: '#EEF3F1', borderRadius: 14, padding: 4, marginBottom: 10 },
+  segment: { flex: 1, minHeight: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  activeSegment: { backgroundColor: '#0F766E', shadowColor: '#0F766E', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  segmentText: { color: '#60726E', fontSize: 13, fontWeight: '800' },
+  activeText: { color: '#FFFFFF' },
+  input: { minHeight: 52, borderWidth: 1, borderColor: '#D6E1DE', borderRadius: 14, paddingHorizontal: 15, fontSize: 16, color: '#10201D', backgroundColor: '#FBFCFC', marginBottom: 8 },
+  amountInput: { minHeight: 58, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#BFD8D2', borderRadius: 14, backgroundColor: '#F8FCFB', marginBottom: 8, paddingHorizontal: 15 },
+  currency: { fontSize: 22, fontWeight: '800', color: '#0F766E', marginRight: 8 },
+  amountField: { flex: 1, fontSize: 23, fontWeight: '800', color: '#10201D', paddingVertical: 10 },
+  dateField: { minHeight: 58, borderWidth: 1, borderColor: '#D6E1DE', borderRadius: 14, backgroundColor: '#FBFCFC', paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  dateValue: { color: '#10201D', fontSize: 15, fontWeight: '700' },
+  dateHint: { color: '#8A9A96', fontSize: 11, marginTop: 3 },
+  calendarIcon: { color: '#0F766E', fontSize: 20 },
+  multiline: { minHeight: 94, paddingTop: 14 },
+  button: { minHeight: 56, borderRadius: 16, backgroundColor: '#0F766E', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginTop: 16, shadowColor: '#0F766E', shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 7 }, elevation: 3 },
   disabled: { opacity: 0.6 },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  buttonArrow: { color: '#FFFFFF', fontSize: 20, marginLeft: 10 },
 });

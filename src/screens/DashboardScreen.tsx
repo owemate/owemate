@@ -2,12 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { formatCurrency } from '../utils/currency';
 import type { Transaction } from '../types/transaction';
 
-type Props = {
-  transactions: Transaction[];
-  onAdd: () => void;
-  onPeople: () => void;
-  onSignOut: () => void;
-};
+type Props = { transactions: Transaction[]; onAdd: () => void; onPeople: () => void; onSignOut: () => void };
 
 export function DashboardScreen({ transactions, onAdd, onPeople, onSignOut }: Props) {
   const lent = transactions.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
@@ -15,88 +10,90 @@ export function DashboardScreen({ transactions, onAdd, onPeople, onSignOut }: Pr
   const net = lent - owed;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.greeting}>Good morning 👋</Text>
-          <Text style={styles.title}>Your money overview</Text>
-        </View>
-        <Pressable style={styles.logo} onPress={onPeople}><Text style={styles.logoText}>O</Text></Pressable>
+        <View style={styles.headerText}><Text style={styles.eyebrow}>OWEMATE</Text><Text style={styles.title}>Money overview</Text><Text style={styles.greeting}>Your personal P2P tracker</Text></View>
+        <Pressable style={styles.avatarButton} onPress={onPeople}><Text style={styles.avatarButtonText}>O</Text></Pressable>
       </View>
 
       <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Net balance</Text>
+        <View style={styles.balanceTop}><Text style={styles.balanceLabel}>NET BALANCE</Text><View style={styles.statusDot} /></View>
         <Text style={styles.balance}>{formatCurrency(net)}</Text>
         <Text style={styles.balanceCaption}>{net >= 0 ? 'People owe you more than you owe.' : 'You owe more than people owe you.'}</Text>
+        <View style={styles.balanceDivider} />
+        <View style={styles.miniRow}><View><Text style={styles.miniLabel}>YOU LENT</Text><Text style={styles.miniValue}>{formatCurrency(lent)}</Text></View><View><Text style={styles.miniLabel}>YOU OWE</Text><Text style={styles.miniValue}>{formatCurrency(owed)}</Text></View></View>
       </View>
 
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}><Text style={styles.cardLabel}>You lent</Text><Text style={styles.summaryAmount}>{formatCurrency(lent)}</Text></View>
-        <View style={styles.summaryCard}><Text style={styles.cardLabel}>You owe</Text><Text style={styles.summaryAmount}>{formatCurrency(owed)}</Text></View>
+      <View style={styles.actionsRow}>
+        <Pressable style={styles.primaryAction} onPress={onAdd}><Text style={styles.actionPlus}>＋</Text><Text style={styles.primaryActionText}>Add record</Text></Pressable>
+        <Pressable style={styles.secondaryAction} onPress={onPeople}><Text style={styles.secondaryActionText}>People</Text></Pressable>
       </View>
 
-      <Pressable style={styles.addButton} onPress={onAdd}><Text style={styles.addButtonText}>＋ Add money record</Text></Pressable>
-      <Pressable style={styles.peopleButton} onPress={onPeople}><Text style={styles.peopleButtonText}>View people</Text></Pressable>
-      <Pressable style={styles.signOutButton} onPress={onSignOut}><Text style={styles.signOutText}>Sign out</Text></Pressable>
-
-      <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent records</Text><Text style={styles.sectionCount}>{transactions.length}</Text></View>
+      <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>Recent records</Text><Text style={styles.sectionSubtitle}>Your latest money activity</Text></View><View style={styles.count}><Text style={styles.countText}>{transactions.length}</Text></View></View>
       {transactions.length === 0 ? (
-        <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No records yet</Text><Text style={styles.emptyText}>Add your first money record to start tracking.</Text></View>
+        <View style={styles.emptyCard}><View style={styles.emptyIcon}><Text style={styles.emptyIconText}>₹</Text></View><Text style={styles.emptyTitle}>Nothing here yet</Text><Text style={styles.emptyText}>Add your first record to start building a clear picture of who owes whom.</Text><Pressable style={styles.emptyButton} onPress={onAdd}><Text style={styles.emptyButtonText}>Add first record</Text></Pressable></View>
       ) : transactions.map((item) => (
         <View style={styles.transactionCard} key={item.id}>
-          <View style={styles.avatar}><Text style={styles.avatarText}>{item.person.charAt(0).toUpperCase()}</Text></View>
-          <View style={styles.transactionMain}>
-            <Text style={styles.person}>{item.person}</Text>
-            <Text style={styles.note}>{item.note}</Text>
-            <Text style={styles.due}>Due: {item.dueDate}</Text>
-          </View>
-          <View style={styles.amountBlock}>
-            <Text style={[styles.amount, item.type === 'owed' && styles.negative]}>{item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}</Text>
-            <Text style={styles.type}>{item.type === 'lent' ? 'They owe you' : 'You owe'}</Text>
-          </View>
+          <View style={[styles.personAvatar, item.type === 'owed' && styles.personAvatarOwed]}><Text style={styles.personAvatarText}>{item.person.charAt(0).toUpperCase()}</Text></View>
+          <View style={styles.transactionMain}><Text style={styles.person}>{item.person}</Text><Text style={styles.note} numberOfLines={1}>{item.note || 'Money record'}</Text><Text style={styles.due}>Due {item.dueDate}</Text></View>
+          <View style={styles.amountBlock}><Text style={[styles.amount, item.type === 'owed' && styles.negative]}>{item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}</Text><Text style={styles.type}>{item.type === 'lent' ? 'They owe you' : 'You owe'}</Text></View>
         </View>
       ))}
+      <Pressable onPress={onSignOut} style={styles.signOut}><Text style={styles.signOutText}>Sign out</Text></Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, paddingBottom: 36 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
+  scroll: { flex: 1 },
+  container: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 34 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   headerText: { flex: 1 },
-  greeting: { fontSize: 14, color: '#64748B', marginBottom: 4 },
-  title: { fontSize: 24, fontWeight: '800', color: '#0F172A' },
-  logo: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center' },
-  logoText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
-  balanceCard: { backgroundColor: '#0F172A', borderRadius: 20, padding: 22, marginBottom: 14 },
-  balanceLabel: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
-  balance: { fontSize: 34, fontWeight: '800', color: '#FFFFFF', marginTop: 8 },
-  balanceCaption: { fontSize: 13, color: '#CBD5E1', marginTop: 7 },
-  summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  summaryCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: '#E2E8F0' },
-  cardLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  summaryAmount: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginTop: 8 },
-  addButton: { height: 54, borderRadius: 14, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  addButtonText: { color: '#0F172A', fontSize: 16, fontWeight: '800' },
-  peopleButton: { height: 48, borderRadius: 14, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  peopleButtonText: { color: '#334155', fontSize: 15, fontWeight: '700' },
-  signOutButton: { height: 44, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
-  signOutText: { color: '#DC2626', fontSize: 14, fontWeight: '700' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
-  sectionCount: { minWidth: 24, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: '#E2E8F0', color: '#475569', fontSize: 12, textAlign: 'center', overflow: 'hidden' },
-  transactionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0' },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  avatarText: { fontSize: 16, fontWeight: '800', color: '#334155' },
-  transactionMain: { flex: 1 },
-  person: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
-  note: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  due: { fontSize: 11, color: '#94A3B8', marginTop: 4 },
+  eyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1.4, color: '#0F766E', marginBottom: 5 },
+  title: { fontSize: 27, fontWeight: '900', color: '#10201D' },
+  greeting: { fontSize: 12, color: '#7A8A87', marginTop: 3 },
+  avatarButton: { width: 46, height: 46, borderRadius: 16, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center' },
+  avatarButtonText: { color: '#0F766E', fontSize: 19, fontWeight: '900' },
+  balanceCard: { backgroundColor: '#10201D', borderRadius: 24, padding: 21, marginBottom: 14, shadowColor: '#10201D', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 9 }, elevation: 5 },
+  balanceTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  balanceLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, color: '#AFC4BF' },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#70D5C5' },
+  balance: { fontSize: 34, fontWeight: '900', color: '#FFFFFF', marginTop: 8 },
+  balanceCaption: { fontSize: 12, lineHeight: 18, color: '#AFC4BF', marginTop: 5 },
+  balanceDivider: { height: 1, backgroundColor: '#29433E', marginVertical: 16 },
+  miniRow: { flexDirection: 'row', gap: 42 },
+  miniLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: '#76908A' },
+  miniValue: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
+  actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 26 },
+  primaryAction: { flex: 1, minHeight: 52, borderRadius: 16, backgroundColor: '#0F766E', alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
+  actionPlus: { color: '#FFFFFF', fontSize: 19, fontWeight: '700', marginRight: 4 },
+  primaryActionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  secondaryAction: { minWidth: 105, minHeight: 52, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D7E2DF', alignItems: 'center', justifyContent: 'center' },
+  secondaryActionText: { color: '#29433E', fontSize: 14, fontWeight: '800' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionTitle: { fontSize: 19, fontWeight: '900', color: '#10201D' },
+  sectionSubtitle: { fontSize: 11, color: '#8A9A96', marginTop: 3 },
+  count: { minWidth: 28, height: 28, borderRadius: 14, backgroundColor: '#E8F0EE', alignItems: 'center', justifyContent: 'center' },
+  countText: { color: '#4F635F', fontSize: 11, fontWeight: '900' },
+  transactionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, marginBottom: 9, borderWidth: 1, borderColor: '#E1EAE7' },
+  personAvatar: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  personAvatarOwed: { backgroundColor: '#FCE7E7' },
+  personAvatarText: { fontSize: 16, fontWeight: '900', color: '#0F766E' },
+  transactionMain: { flex: 1, minWidth: 0 },
+  person: { fontSize: 14, fontWeight: '900', color: '#10201D' },
+  note: { fontSize: 11, color: '#71827E', marginTop: 2 },
+  due: { fontSize: 10, color: '#9AA7A5', marginTop: 4 },
   amountBlock: { alignItems: 'flex-end', marginLeft: 8 },
-  amount: { fontSize: 15, fontWeight: '800', color: '#15803D' },
-  negative: { color: '#DC2626' },
-  type: { fontSize: 10, color: '#64748B', marginTop: 3 },
-  emptyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 16, padding: 22, alignItems: 'center' },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
-  emptyText: { fontSize: 13, color: '#64748B', marginTop: 6, textAlign: 'center' },
+  amount: { fontSize: 14, fontWeight: '900', color: '#16806F' },
+  negative: { color: '#C24141' },
+  type: { fontSize: 9, color: '#7A8A87', marginTop: 3 },
+  emptyCard: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1EAE7', borderRadius: 20, padding: 24, alignItems: 'center' },
+  emptyIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#D9F2ED', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptyIconText: { color: '#0F766E', fontSize: 20, fontWeight: '900' },
+  emptyTitle: { fontSize: 16, fontWeight: '900', color: '#10201D' },
+  emptyText: { fontSize: 12, lineHeight: 18, color: '#7A8A87', textAlign: 'center', marginTop: 5 },
+  emptyButton: { backgroundColor: '#EAF5F2', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14 },
+  emptyButtonText: { color: '#0F766E', fontSize: 12, fontWeight: '900' },
+  signOut: { alignItems: 'center', paddingVertical: 18 },
+  signOutText: { color: '#B45353', fontSize: 12, fontWeight: '800' },
 });

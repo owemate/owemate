@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { ReactNode } from 'react';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AddTransactionScreen } from './src/screens/AddTransactionScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -9,10 +10,14 @@ import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { useAppRootState } from './src/screens/AppRoot';
 
 export default function App() {
+  return <SafeAreaProvider><AppContent /></SafeAreaProvider>;
+}
+
+function AppContent() {
   const app = useAppRootState();
 
   if (app.loading) {
-    return <AppShell><View style={styles.loading}><ActivityIndicator size="large" /><Text style={styles.loadingText}>Loading OweMate…</Text></View></AppShell>;
+    return <AppShell><View style={styles.loading}><ActivityIndicator size="large" color="#0F766E" /><Text style={styles.loadingText}>Loading OweMate…</Text></View></AppShell>;
   }
 
   if (app.screen === 'welcome') {
@@ -35,11 +40,11 @@ export default function App() {
 }
 
 function AppShell({ children }: { children: ReactNode }) {
-  return <View style={styles.safeArea}><StatusBar style="dark" />{children}</View>;
+  return <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}><StatusBar style="dark" />{children}</SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  safeArea: { flex: 1, backgroundColor: '#F4F7F6' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: '#64748B', fontSize: 14 },
 });

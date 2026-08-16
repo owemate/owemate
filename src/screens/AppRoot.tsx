@@ -29,13 +29,14 @@ export function useAppRootState() {
     if (!supabase) return;
 
     let active = true;
+    const client = supabase;
     const restoreSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await client.auth.getSession();
       if (active) setUserId(data.session?.user.id ?? null);
     };
 
     void restoreSession();
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
       if (active) setUserId(session?.user.id ?? null);
     });
 
