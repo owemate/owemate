@@ -6,13 +6,22 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "owemate",
-    "plugins": ["expo-notifications"],
+    "plugins": [
+      "expo-notifications",
+      "expo-font"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.owemate.app"
     },
     "android": {
       "package": "com.owemate.app"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bfce8f15-52a5-4c92-881b-9d1298feb111"
+      }
+    },
+    "owner": "owemate"
   }
 }
