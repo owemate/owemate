@@ -164,7 +164,7 @@ export default function App() {
         </View>
 
         <View style={styles.balanceCard}>
-          <Text style={styles.cardLabel}>Net balance</Text>
+          <Text style={styles.cardLabelLight}>Net balance</Text>
           <Text style={styles.balanceAmount}>{formatCurrency(netBalance)}</Text>
           <Text style={styles.balanceCaption}>{netBalance >= 0 ? 'People owe you more than you owe.' : 'You owe more than people owe you.'}</Text>
         </View>
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   smallLogoText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
   balanceCard: { backgroundColor: '#0F172A', borderRadius: 20, padding: 22, marginBottom: 14 },
   cardLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  balanceCard: { backgroundColor: '#0F172A', borderRadius: 20, padding: 22, marginBottom: 14 },
+  cardLabelLight: { fontSize: 13, fontWeight: '600', color: '#CBD5E1' },
   balanceAmount: { fontSize: 34, fontWeight: '800', color: '#FFFFFF', marginTop: 8 },
   balanceCaption: { fontSize: 13, color: '#CBD5E1', marginTop: 7 },
   summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
