@@ -1,5 +1,61 @@
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-type Props = { mode: 'signin' | 'signup'; email: string; password: string; submitting: boolean; configured: boolean; message: string | null; messageType: 'error' | 'success'; onEmailChange: (value: string) => void; onPasswordChange: (value: string) => void; onSubmit: () => void; onForgotPassword: () => void; onBack: () => void; };
-export function AuthScreen({ mode,email,password,submitting,configured,message,messageType,onEmailChange,onPasswordChange,onSubmit,onForgotPassword,onBack }:Props){const isSignIn=mode==='signin';return <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS==='ios'?'padding':'height'}><ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><View style={styles.header}><Pressable onPress={onBack} hitSlop={12}><Text style={styles.back}>‹  Back</Text></Pressable><View style={styles.brand}><View style={styles.mark}><Text style={styles.markText}>O</Text></View><Text style={styles.brandText}>OweMate</Text></View></View><View style={styles.hero}><Text style={styles.title}>{isSignIn?'Welcome Back!':'Create Account'}</Text><Text style={styles.subtitle}>Track. Remind. Settle.</Text></View>{message&&<View style={[styles.message,messageType==='error'?styles.error:styles.success]}><Text style={styles.messageText}>{message}</Text></View>}<View style={styles.card}><Text style={styles.label}>Email</Text><TextInput value={email} onChangeText={onEmailChange} placeholder="Email" placeholderTextColor="#9AA7A5" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} style={styles.input}/><Text style={styles.label}>Password</Text><TextInput value={password} onChangeText={onPasswordChange} placeholder="Password" placeholderTextColor="#9AA7A5" secureTextEntry style={styles.input} onSubmitEditing={onSubmit}/>{isSignIn&&<Pressable onPress={onForgotPassword} hitSlop={8} style={styles.forgot}><Text style={styles.forgotText}>Forgot Password?</Text></Pressable>}<Pressable style={[styles.primaryButton,submitting&&styles.disabled]} onPress={onSubmit} disabled={submitting}>{submitting?<ActivityIndicator color="#fff"/>:<Text style={styles.primaryText}>{isSignIn?'Sign In':'Create Account'}</Text>}</Pressable>{!configured&&<Text style={styles.hint}>Supabase is not configured in this local environment yet.</Text>}</View><View style={styles.footer}><Text style={styles.footerText}>{isSignIn?"Don't have an account?":"Already have an account?"}</Text><Pressable onPress={onBack}><Text style={styles.link}>{isSignIn?' Sign Up':' Sign In'}</Text></Pressable></View></ScrollView></KeyboardAvoidingView>}
-const styles=StyleSheet.create({keyboard:{flex:1},scroll:{flex:1,backgroundColor:'#F4F7F6'},container:{flexGrow:1,padding:20,paddingTop:10,paddingBottom:35},header:{height:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{fontSize:14,fontWeight:'700',color:'#52635F'},brand:{flexDirection:'row',alignItems:'center'},mark:{width:30,height:30,borderRadius:10,backgroundColor:'#0F766E',alignItems:'center',justifyContent:'center',marginRight:7},markText:{color:'#fff',fontSize:15,fontWeight:'900'},brandText:{fontSize:17,fontWeight:'900',color:'#10201D'},hero:{alignItems:'center',paddingTop:28,paddingBottom:22},title:{fontSize:27,fontWeight:'900',color:'#10201D'},subtitle:{fontSize:12,color:'#7A8A87',marginTop:5},message:{padding:12,borderRadius:13,marginBottom:12},error:{backgroundColor:'#FFF1F2'},success:{backgroundColor:'#ECFDF5'},messageText:{fontSize:12,lineHeight:18,color:'#334155'},card:{backgroundColor:'#fff',borderRadius:22,padding:18,borderWidth:1,borderColor:'#E0E9E6'},label:{fontSize:12,fontWeight:'800',color:'#40524E',marginBottom:7,marginTop:3},input:{height:52,borderWidth:1,borderColor:'#D6E1DE',borderRadius:14,backgroundColor:'#FBFCFC',paddingHorizontal:14,fontSize:15,color:'#12221F',marginBottom:13},forgot:{alignSelf:'flex-end',marginTop:-5,marginBottom:13},forgotText:{fontSize:11,color:'#0F766E',fontWeight:'800'},primaryButton:{height:52,borderRadius:16,backgroundColor:'#0F766E',alignItems:'center',justifyContent:'center'},disabled:{opacity:.55},primaryText:{color:'#fff',fontSize:15,fontWeight:'900'},hint:{fontSize:10,color:'#8A9A96',textAlign:'center',marginTop:9},footer:{flexDirection:'row',justifyContent:'center',marginTop:22},footerText:{fontSize:11,color:'#7D8C88'},link:{fontSize:11,color:'#0F766E',fontWeight:'900'}});
+type Props = {
+  mode: 'signin' | 'signup';
+  email: string;
+  password: string;
+  submitting: boolean;
+  configured: boolean;
+  message: string | null;
+  messageType: 'error' | 'success';
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onSubmit: () => void;
+  onForgotPassword: () => void;
+  onBack: () => void;
+};
+
+export function AuthScreen({ mode, email, password, submitting, configured, message, messageType, onEmailChange, onPasswordChange, onSubmit, onForgotPassword, onBack }: Props) {
+  const isSignIn = mode === 'signin';
+
+  return (
+    <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Pressable onPress={onBack} hitSlop={12}><Text style={styles.back}>‹  Back</Text></Pressable>
+          <View style={styles.brand}><View style={styles.mark}><Text style={styles.markText}>O</Text></View><Text style={styles.brandText}>OweMate</Text></View>
+        </View>
+
+        <View style={styles.hero}>
+          <Text style={styles.title}>{isSignIn ? 'Welcome Back!' : 'Create Account'}</Text>
+          <Text style={styles.subtitle}>{isSignIn ? 'Sign in to continue tracking your money.' : 'Start tracking money with people you trust.'}</Text>
+        </View>
+
+        {message && <View style={[styles.message, messageType === 'error' ? styles.error : styles.success]}><Text style={styles.messageText}>{message}</Text></View>}
+
+        <View style={styles.card}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput value={email} onChangeText={onEmailChange} placeholder="Email" placeholderTextColor="#9AA7A5" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} style={styles.input}/>
+          <Text style={styles.label}>Password</Text>
+          <TextInput value={password} onChangeText={onPasswordChange} placeholder="Password" placeholderTextColor="#9AA7A5" secureTextEntry style={styles.input} onSubmitEditing={onSubmit}/>
+
+          {isSignIn && <Pressable onPress={onForgotPassword} hitSlop={8} style={styles.forgot}><Text style={styles.forgotText}>Forgot Password?</Text></Pressable>}
+
+          <Pressable style={[styles.primaryButton, submitting && styles.disabled]} onPress={onSubmit} disabled={submitting}>
+            {submitting ? <ActivityIndicator color="#fff"/> : <Text style={styles.primaryText}>{isSignIn ? 'Sign In' : 'Create Account'}</Text>}
+          </Pressable>
+
+          {!configured && <Text style={styles.hint}>Supabase is not configured in this local environment yet.</Text>}
+        </View>
+
+        <Pressable onPress={onBack} style={styles.footer} hitSlop={10}>
+          <Text style={styles.footerText}>{isSignIn ? 'New to OweMate? ' : 'Already have an account? '}</Text>
+          <Text style={styles.link}>{isSignIn ? 'Go back to Create Account' : 'Go back to Sign In'}</Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  keyboard:{flex:1},scroll:{flex:1,backgroundColor:'#F4F7F6'},container:{flexGrow:1,padding:20,paddingTop:10,paddingBottom:35},header:{height:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{fontSize:14,fontWeight:'700',color:'#52635F'},brand:{flexDirection:'row',alignItems:'center'},mark:{width:30,height:30,borderRadius:10,backgroundColor:'#0F766E',alignItems:'center',justifyContent:'center',marginRight:7},markText:{color:'#fff',fontSize:15,fontWeight:'900'},brandText:{fontSize:17,fontWeight:'900',color:'#10201D'},hero:{alignItems:'center',paddingTop:28,paddingBottom:22},title:{fontSize:27,fontWeight:'900',color:'#10201D'},subtitle:{fontSize:12,color:'#7A8A87',marginTop:5,textAlign:'center'},message:{padding:12,borderRadius:13,marginBottom:12},error:{backgroundColor:'#FFF1F2'},success:{backgroundColor:'#ECFDF5'},messageText:{fontSize:12,lineHeight:18,color:'#334155'},card:{backgroundColor:'#fff',borderRadius:22,padding:18,borderWidth:1,borderColor:'#E0E9E6'},label:{fontSize:12,fontWeight:'800',color:'#40524E',marginBottom:7,marginTop:3},input:{height:52,borderWidth:1,borderColor:'#D6E1DE',borderRadius:14,backgroundColor:'#FBFCFC',paddingHorizontal:14,fontSize:15,color:'#12221F',marginBottom:13},forgot:{alignSelf:'flex-end',marginTop:-5,marginBottom:13},forgotText:{fontSize:11,color:'#0F766E',fontWeight:'800'},primaryButton:{height:52,borderRadius:16,backgroundColor:'#0F766E',alignItems:'center',justifyContent:'center'},disabled:{opacity:.55},primaryText:{color:'#fff',fontSize:15,fontWeight:'900'},hint:{fontSize:10,color:'#8A9A96',textAlign:'center',marginTop:9},footer:{flexDirection:'row',justifyContent:'center',alignItems:'center',flexWrap:'wrap',marginTop:22,padding:6},footerText:{fontSize:11,color:'#7D8C88'},link:{fontSize:11,color:'#0F766E',fontWeight:'900'}});
