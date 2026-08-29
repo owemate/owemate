@@ -1,25 +1,18 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
-
-// Exported from the Figma splash-screen node. This URL is temporary and should
-// be replaced with a committed local asset before the final release build.
-const logoMark = 'https://www.figma.com/api/mcp/asset/a11727d4-287a-428d-96a0-361a06467535.svg';
+import { StyleSheet, Text, View } from 'react-native';
 
 export function SplashScreen() {
   return (
     <View style={styles.container}>
+      <View style={styles.glow} />
       <View style={styles.content}>
         <View style={styles.logoOuter}>
           <View style={styles.logoCore}>
-            <Image source={{ uri: logoMark }} style={styles.logoMark} resizeMode="contain" />
+            <Text style={styles.logoMark}>O</Text>
           </View>
         </View>
-
-        <View style={styles.typography}>
-          <Text style={styles.brand}>OweMate</Text>
-          <Text style={styles.tagline}>Track. Remind. Settle.</Text>
-        </View>
+        <Text style={styles.brand}>OweMate</Text>
+        <Text style={styles.tagline}>Track. Remind. Settle.</Text>
       </View>
-
       <View style={styles.progress}>
         <View style={styles.activeDot} />
         <View style={styles.dot} />
@@ -32,87 +25,82 @@ export function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FF',
+    backgroundColor: '#F4F7F6',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  glow: {
+    position: 'absolute',
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: '#D9F2ED',
+    opacity: 0.55,
+    top: -130,
   },
   content: {
-    width: '100%',
-    maxWidth: 384,
-    paddingHorizontal: 20,
     alignItems: 'center',
-    justifyContent: 'center',
+    zIndex: 1,
   },
   logoOuter: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 116,
+    height: 116,
+    borderRadius: 36,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D3E4FE',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#00685F',
+    shadowColor: '#0F766E',
     shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 7 },
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 7,
   },
   logoCore: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#00685F',
+    width: 82,
+    height: 82,
+    borderRadius: 27,
+    backgroundColor: '#0F766E',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#008378',
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 3,
   },
   logoMark: {
-    width: 32,
-    height: 30,
-  },
-  typography: {
-    alignItems: 'center',
-    paddingTop: 24,
+    color: '#FFFFFF',
+    fontSize: 43,
+    fontWeight: '900',
+    marginTop: -2,
   },
   brand: {
-    color: '#0B1C30',
-    fontSize: 40,
-    lineHeight: 48,
-    fontWeight: '800',
+    color: '#10201D',
+    fontSize: 38,
+    lineHeight: 46,
+    fontWeight: '900',
+    marginTop: 25,
     letterSpacing: -1,
-    textAlign: 'center',
   },
   tagline: {
-    color: '#3D4947',
-    opacity: 0.8,
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
+    color: '#6B7D79',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 4,
   },
   progress: {
     position: 'absolute',
-    bottom: 32,
-    left: '50%',
+    bottom: 34,
     flexDirection: 'row',
     alignItems: 'center',
-    transform: [{ translateX: -20 }],
   },
   activeDot: {
-    width: 8,
-    height: 8,
+    width: 20,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: '#00685F',
+    backgroundColor: '#0F766E',
   },
   dot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: '#D3E4FE',
-    marginLeft: 8,
+    backgroundColor: '#BFD4CF',
+    marginLeft: 7,
   },
 });
