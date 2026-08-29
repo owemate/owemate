@@ -3,104 +3,33 @@ import { StyleSheet, Text, View } from 'react-native';
 export function SplashScreen() {
   return (
     <View style={styles.container}>
-      <View style={styles.glow} />
       <View style={styles.content}>
         <View style={styles.logoOuter}>
           <View style={styles.logoCore}>
-            <Text style={styles.logoMark}>O</Text>
+            <View style={styles.wallet}>
+              <View style={styles.walletLine} />
+              <View style={styles.coin} />
+            </View>
           </View>
         </View>
-        <Text style={styles.brand}>OweMate</Text>
-        <Text style={styles.tagline}>Track. Remind. Settle.</Text>
+        <View style={styles.typography}>
+          <Text style={styles.brand}>OweMate</Text>
+          <Text style={styles.tagline}>Track. Remind. Settle.</Text>
+        </View>
       </View>
-      <View style={styles.progress}>
-        <View style={styles.activeDot} />
-        <View style={styles.dot} />
-        <View style={styles.dot} />
-      </View>
+      <View style={styles.progress}><View style={styles.activeDot} /><View style={styles.dot} /><View style={styles.dot} /></View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F7F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  glow: {
-    position: 'absolute',
-    width: 360,
-    height: 360,
-    borderRadius: 180,
-    backgroundColor: '#D9F2ED',
-    opacity: 0.55,
-    top: -130,
-  },
-  content: {
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  logoOuter: {
-    width: 116,
-    height: 116,
-    borderRadius: 36,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0F766E',
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 7,
-  },
-  logoCore: {
-    width: 82,
-    height: 82,
-    borderRadius: 27,
-    backgroundColor: '#0F766E',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoMark: {
-    color: '#FFFFFF',
-    fontSize: 43,
-    fontWeight: '900',
-    marginTop: -2,
-  },
-  brand: {
-    color: '#10201D',
-    fontSize: 38,
-    lineHeight: 46,
-    fontWeight: '900',
-    marginTop: 25,
-    letterSpacing: -1,
-  },
-  tagline: {
-    color: '#6B7D79',
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 4,
-  },
-  progress: {
-    position: 'absolute',
-    bottom: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activeDot: {
-    width: 20,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#0F766E',
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#BFD4CF',
-    marginLeft: 7,
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FF', alignItems: 'center', justifyContent: 'center' },
+  content: { width: '100%', maxWidth: 384, alignItems: 'center', justifyContent: 'center', marginTop: -10 },
+  logoOuter: { width: 112, height: 112, borderRadius: 56, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D3E4FE', alignItems: 'center', justifyContent: 'center', shadowColor: '#00685F', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 7 }, elevation: 7 },
+  logoCore: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#00685F', alignItems: 'center', justifyContent: 'center', shadowColor: '#008378', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 3 },
+  wallet: { width: 38, height: 27, borderWidth: 2.5, borderColor: '#FFFFFF', borderRadius: 7, position: 'relative', justifyContent: 'center' },
+  walletLine: { position: 'absolute', right: -4, top: 8, width: 15, height: 11, borderWidth: 2.5, borderColor: '#FFFFFF', borderRadius: 4, backgroundColor: '#00685F' },
+  coin: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFFFFF', position: 'absolute', right: 1, top: 11 },
+  typography: { alignItems: 'center', paddingTop: 24 }, brand: { color: '#0B1C30', fontSize: 40, lineHeight: 48, fontWeight: '800', letterSpacing: -1, textAlign: 'center' }, tagline: { color: '#3D4947', opacity: 0.8, fontSize: 16, lineHeight: 24, textAlign: 'center' },
+  progress: { position: 'absolute', bottom: 32, flexDirection: 'row', alignItems: 'center', gap: 8 }, activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00685F' }, dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D3E4FE' },
 });
