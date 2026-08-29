@@ -13,10 +13,11 @@ type Props = {
   onPasswordChange: (value: string) => void;
   onSubmit: () => void;
   onForgotPassword: () => void;
+  onSwitchMode: () => void;
   onBack: () => void;
 };
 
-export function AuthScreen({ mode, email, password, submitting, configured, message, messageType, onEmailChange, onPasswordChange, onSubmit, onForgotPassword, onBack }: Props) {
+export function AuthScreen({ mode, email, password, submitting, configured, message, messageType, onEmailChange, onPasswordChange, onSubmit, onForgotPassword, onSwitchMode, onBack }: Props) {
   const isSignIn = mode === 'signin';
   const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -52,7 +53,10 @@ export function AuthScreen({ mode, email, password, submitting, configured, mess
           </View>
 
           {!configured && <Text style={styles.hint}>Supabase is not configured in this local environment yet.</Text>}
-          <View style={styles.footer}><Text style={styles.footerText}>{isSignIn ? "Don't have an account?" : 'Already have an account?'}</Text><Pressable onPress={onBack}><Text style={styles.link}>{isSignIn ? ' Sign Up' : ' Sign In'}</Text></Pressable></View>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>{isSignIn ? "Don't have an account?" : 'Already have an account?'}</Text>
+            <Pressable onPress={onSwitchMode} hitSlop={10}><Text style={styles.link}>{isSignIn ? ' Sign Up' : ' Sign In'}</Text></Pressable>
+          </View>
           <Pressable onPress={onBack} hitSlop={12} style={styles.backButton}><Text style={styles.backText}>‹ Back</Text></Pressable>
         </View>
       </ScrollView>
