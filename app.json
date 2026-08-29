@@ -6,6 +6,10 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "owemate",
+    "splash": {
+      "backgroundColor": "#F4F7F6",
+      "resizeMode": "contain"
+    },
     "plugins": [
       "expo-notifications",
       "expo-font"
