@@ -23,9 +23,13 @@ if (supabase) {
   Linking.addEventListener('url', ({ url }) => { void handleAuthDeepLink(url).catch(() => undefined); });
 }
 
-export async function signUp(email: string, password: string) {
+export async function signUp(email: string, password: string, fullName: string) {
   if (!supabase) throw new Error('Supabase is not configured yet.');
-  return supabase.auth.signUp({ email, password });
+  return supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName } },
+  });
 }
 
 export async function signIn(email: string, password: string) {
