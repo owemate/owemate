@@ -1,12 +1,21 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
 import type { Transaction } from '../types/transaction';
 import { formatCurrency } from '../utils/currency';
 import { formatDatabaseDate } from '../utils/date';
+import { TransactionDetailsScreen } from './TransactionDetailsScreen';
 
 type Props = { person: string; transactions: Transaction[]; onBack: () => void; onAdd: () => void; onToggleSettled: (transaction: Transaction) => void; };
 
 export function PersonDetailsScreen({ person, transactions, onBack, onAdd, onToggleSettled }: Props) {
-  const records = transactions.filter((item) => item.person.trim().toLowerCase() === person.trim().toLowerCase());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const records = useMemo(() => transactions.filter((item) => item.person.trim().toLowerCase() === person.trim().toLowerCase()), [person, transactions]);
+  const selected = records.find((item) => item.id === selectedId) ?? null;
+
+  if (selected) {
+    return <TransactionDetailsScreen transaction={selected} onBack={() => setSelectedId(null)} onMarkPaid={() => { onToggleSettled(selected); setSelectedId(null); }} onDelete={() => setSelectedId(null)} />;
+  }
+
   const pending = records.filter((item) => item.status !== 'settled');
   const lent = pending.filter((item) => item.type === 'lent').reduce((sum, item) => sum + item.amount, 0);
   const owed = pending.filter((item) => item.type === 'owed').reduce((sum, item) => sum + item.amount, 0);
@@ -27,10 +36,10 @@ export function PersonDetailsScreen({ person, transactions, onBack, onAdd, onTog
       <Stat label="Pending" value={String(pending.length)} />
     </View>
     <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>Transactions</Text><Text style={styles.sectionSubtitle}>{records.length} record{records.length === 1 ? '' : 's'}</Text></View><Pressable style={styles.addButton} onPress={onAdd}><Text style={styles.addButtonText}>+ Add</Text></Pressable></View>
-    {records.map((item) => <View style={styles.card} key={item.id}>
+    {records.map((item) => <Pressable style={styles.card} key={item.id} onPress={() => setSelectedId(item.id)}>
       <View style={styles.cardTop}><View style={[styles.typeDot, item.type === 'owed' && styles.typeDotOwed]}><Text style={styles.typeText}>{item.type === 'lent' ? 'L' : 'O'}</Text></View><View style={styles.details}><Text style={styles.amount}>{formatCurrency(item.amount)}</Text><Text style={styles.meta}>{item.type === 'lent' ? 'You lent' : 'You owe'} · {formatDatabaseDate(item.dueDate)}</Text>{item.note && item.note !== 'No note' && <Text style={styles.note} numberOfLines={1}>{item.note}</Text>}</View><View style={styles.right}><View style={[styles.status, item.status === 'settled' && styles.statusSettled]}><Text style={[styles.statusText, item.status === 'settled' && styles.statusTextSettled]}>{item.status === 'settled' ? 'Settled' : 'Pending'}</Text></View></View></View>
-      {item.status !== 'settled' && <Pressable style={styles.settleButton} onPress={() => onToggleSettled(item)}><Text style={styles.settleText}>Mark as repaid</Text></Pressable>}
-    </View>)}
+      {item.status !== 'settled' && <Pressable style={styles.settleButton} onPress={(event) => { event.stopPropagation(); onToggleSettled(item); }}><Text style={styles.settleText}>Mark as repaid</Text></Pressable>}
+    </Pressable>)}
     {records.length === 0 && <View style={styles.empty}><Text style={styles.emptyTitle}>No transactions</Text><Text style={styles.emptyText}>Add a record for {person} to start tracking the balance.</Text></View>}
   </ScrollView>;
 }
