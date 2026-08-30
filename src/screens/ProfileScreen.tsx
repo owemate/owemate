@@ -1,68 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-type Props = {
-  email: string;
-  remindersEnabled: boolean;
-  onHome: () => void;
-  onTransactions: () => void;
-  onAdd: () => void;
-  onCalendar: () => void;
-  onNotifications: () => void;
-  onReminders: () => void;
-  onSignOut: () => void;
-};
-
-export function ProfileScreen({ email, remindersEnabled, onHome, onTransactions, onAdd, onCalendar, onNotifications, onReminders, onSignOut }: Props) {
-  const initials = email ? email.slice(0, 1).toUpperCase() : 'O';
-  return <View style={styles.screen}>
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.headerAvatar}><Text style={styles.headerInitial}>{initials}</Text></View>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <Pressable onPress={onNotifications} style={styles.headerIcon}><Ionicons name="notifications-outline" size={26} color="#17645F" /></Pressable>
-      </View>
-
-      <View style={styles.profileCard}>
-        <View style={styles.largeAvatar}><Text style={styles.largeInitial}>{initials}</Text></View>
-        <View style={styles.profileCopy}><Text style={styles.name}>My OweMate</Text><Text style={styles.email} numberOfLines={1}>{email || 'Signed in account'}</Text></View>
-      </View>
-
-      <Text style={styles.sectionTitle}>ACCOUNT</Text>
-      <View style={styles.menuCard}>
-        <Pressable style={styles.menuRow} onPress={onReminders}>
-          <View style={styles.menuIcon}><Ionicons name="notifications-outline" size={21} color="#176D67" /></View>
-          <View style={styles.menuCopy}><Text style={styles.menuTitle}>Reminders</Text><Text style={styles.menuSubtitle}>{remindersEnabled ? 'Notifications are enabled' : 'Notifications are turned off'}</Text></View>
-          <Ionicons name="chevron-forward" size={20} color="#879391" />
-        </Pressable>
-        <View style={styles.divider} />
-        <View style={styles.menuRow}>
-          <View style={styles.menuIcon}><Ionicons name="shield-checkmark-outline" size={21} color="#176D67" /></View>
-          <View style={styles.menuCopy}><Text style={styles.menuTitle}>Your data</Text><Text style={styles.menuSubtitle}>Your records are stored in your account</Text></View>
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>SUPPORT</Text>
-      <View style={styles.menuCard}>
-        <View style={styles.menuRow}>
-          <View style={styles.menuIcon}><Ionicons name="information-circle-outline" size={22} color="#176D67" /></View>
-          <View style={styles.menuCopy}><Text style={styles.menuTitle}>About OweMate</Text><Text style={styles.menuSubtitle}>Keep track of money between people</Text></View>
-        </View>
-      </View>
-
-      <Pressable style={styles.signOutButton} onPress={onSignOut}><Ionicons name="log-out-outline" size={20} color="#B3261E" /><Text style={styles.signOutText}>Sign out</Text></Pressable>
-    </ScrollView>
-
-    <View style={styles.bottomNav}>
-      <Pressable style={styles.navItem} onPress={onHome}><Ionicons name="home-outline" size={24} color="#475654" /><Text style={styles.navText}>Home</Text></Pressable>
-      <Pressable style={styles.navItem} onPress={onTransactions}><Ionicons name="list-outline" size={24} color="#475654" /><Text style={styles.navText}>Transactions</Text></Pressable>
-      <Pressable style={styles.fab} onPress={onAdd}><Ionicons name="add" size={30} color="#176D67" /></Pressable>
-      <Pressable style={styles.navItem} onPress={onCalendar}><Ionicons name="calendar-outline" size={24} color="#475654" /><Text style={styles.navText}>Calendar</Text></Pressable>
-      <Pressable style={[styles.navItem, styles.activeNav]}><Ionicons name="person" size={24} color="#FFFFFF" /><Text style={styles.activeNavText}>Profile</Text></Pressable>
-    </View>
-  </View>;
+type Props = { fullName:string; email: string; remindersEnabled: boolean; onHome: () => void; onTransactions: () => void; onAdd: () => void; onCalendar: () => void; onNotifications: () => void; onReminders: () => void; onSignOut: () => void; };
+export function ProfileScreen({ fullName,email, remindersEnabled, onHome, onTransactions, onAdd, onCalendar, onNotifications, onReminders, onSignOut }: Props) {
+  const name=fullName.trim()||'My OweMate'; const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]?.toUpperCase()??'').join('')||'O';
+  return <View style={styles.screen}><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}><View style={styles.header}><View style={styles.headerAvatar}><Text style={styles.headerInitial}>{initials}</Text></View><Text style={styles.headerTitle}>Profile</Text><Pressable onPress={onNotifications} style={styles.headerIcon}><Ionicons name="notifications-outline" size={26} color="#17645F" /></Pressable></View><View style={styles.profileCard}><View style={styles.largeAvatar}><Text style={styles.largeInitial}>{initials}</Text></View><View style={styles.profileCopy}><Text style={styles.name}>{name}</Text><Text style={styles.email} numberOfLines={1}>{email || 'Signed in account'}</Text></View></View><Text style={styles.sectionTitle}>ACCOUNT</Text><View style={styles.menuCard}><Pressable style={styles.menuRow} onPress={onReminders}><View style={styles.menuIcon}><Ionicons name="notifications-outline" size={21} color="#176D67" /></View><View style={styles.menuCopy}><Text style={styles.menuTitle}>Reminders</Text><Text style={styles.menuSubtitle}>{remindersEnabled ? 'Notifications are enabled' : 'Notifications are turned off'}</Text></View><Ionicons name="chevron-forward" size={20} color="#879391" /></Pressable><View style={styles.divider} /><View style={styles.menuRow}><View style={styles.menuIcon}><Ionicons name="shield-checkmark-outline" size={21} color="#176D67" /></View><View style={styles.menuCopy}><Text style={styles.menuTitle}>Your data</Text><Text style={styles.menuSubtitle}>Your records are stored in your account</Text></View></View></View><Text style={styles.sectionTitle}>SUPPORT</Text><View style={styles.menuCard}><View style={styles.menuRow}><View style={styles.menuIcon}><Ionicons name="information-circle-outline" size={22} color="#176D67" /></View><View style={styles.menuCopy}><Text style={styles.menuTitle}>About OweMate</Text><Text style={styles.menuSubtitle}>Keep track of money between people</Text></View></View></View><Pressable style={styles.signOutButton} onPress={onSignOut}><Ionicons name="log-out-outline" size={20} color="#B3261E" /><Text style={styles.signOutText}>Sign out</Text></Pressable></ScrollView><View style={styles.bottomNav}><Pressable style={styles.navItem} onPress={onHome}><Ionicons name="home-outline" size={24} color="#475654" /><Text style={styles.navText}>Home</Text></Pressable><Pressable style={styles.navItem} onPress={onTransactions}><Ionicons name="list-outline" size={24} color="#475654" /><Text style={styles.navText}>Transactions</Text></Pressable><Pressable style={styles.fab} onPress={onAdd}><Ionicons name="add" size={30} color="#176D67" /></Pressable><Pressable style={styles.navItem} onPress={onCalendar}><Ionicons name="calendar-outline" size={24} color="#475654" /><Text style={styles.navText}>Calendar</Text></Pressable><Pressable style={[styles.navItem,styles.activeNav]}><Ionicons name="person" size={24} color="#FFFFFF" /><Text style={styles.activeNavText}>Profile</Text></Pressable></View></View>;
 }
-
-const styles = StyleSheet.create({
-  screen:{flex:1,backgroundColor:'#F7F8FC'},content:{paddingBottom:112},header:{height:82,paddingHorizontal:28,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#E2E7EA'},headerAvatar:{width:54,height:54,borderRadius:27,backgroundColor:'#DDEBE8',alignItems:'center',justifyContent:'center'},headerInitial:{fontSize:20,fontWeight:'800',color:'#176D67'},headerTitle:{fontSize:28,fontWeight:'800',color:'#205D58'},headerIcon:{width:54,alignItems:'flex-end'},profileCard:{margin:28,padding:22,borderRadius:22,backgroundColor:'#FFFFFF',flexDirection:'row',alignItems:'center',shadowColor:'#8A96A3',shadowOpacity:.07,shadowRadius:10,elevation:2},largeAvatar:{width:72,height:72,borderRadius:36,backgroundColor:'#DDEBE8',alignItems:'center',justifyContent:'center'},largeInitial:{fontSize:27,fontWeight:'800',color:'#176D67'},profileCopy:{flex:1,marginLeft:18},name:{fontSize:21,fontWeight:'800',color:'#263342'},email:{fontSize:14,color:'#6B7878',marginTop:5},sectionTitle:{marginHorizontal:28,marginTop:10,marginBottom:10,fontSize:12,fontWeight:'900',letterSpacing:1.5,color:'#667371'},menuCard:{marginHorizontal:28,borderRadius:20,backgroundColor:'#FFFFFF',overflow:'hidden',shadowColor:'#8A96A3',shadowOpacity:.05,shadowRadius:8,elevation:1},menuRow:{minHeight:82,paddingHorizontal:18,flexDirection:'row',alignItems:'center'},menuIcon:{width:44,height:44,borderRadius:14,backgroundColor:'#EAF5F2',alignItems:'center',justifyContent:'center'},menuCopy:{flex:1,marginLeft:14},menuTitle:{fontSize:16,fontWeight:'800',color:'#263342'},menuSubtitle:{fontSize:12,color:'#71807E',marginTop:3},divider:{height:1,marginLeft:76,backgroundColor:'#E8EEEE'},signOutButton:{margin:28,height:54,borderRadius:16,borderWidth:1,borderColor:'#F0C8C5',backgroundColor:'#FFF7F6',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:9},signOutText:{fontSize:16,fontWeight:'800',color:'#B3261E'},bottomNav:{position:'absolute',left:0,right:0,bottom:0,height:82,backgroundColor:'#FFFFFF',borderTopWidth:1,borderTopColor:'#E4E8EB',flexDirection:'row',alignItems:'center',justifyContent:'space-around'},navItem:{height:70,minWidth:62,alignItems:'center',justifyContent:'center',gap:4,paddingHorizontal:8},navText:{fontSize:11,color:'#475654'},activeNav:{backgroundColor:'#176D67',borderRadius:20,paddingHorizontal:16},activeNavText:{fontSize:11,color:'#FFFFFF',fontWeight:'700'},fab:{width:56,height:56,borderRadius:28,backgroundColor:'#FFFFFF',borderWidth:4,borderColor:'#176D67',alignItems:'center',justifyContent:'center'}
-});
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:'#F7F8FC'},content:{paddingBottom:112},header:{height:82,paddingHorizontal:28,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#E2E7EA'},headerAvatar:{width:54,height:54,borderRadius:27,backgroundColor:'#DDEBE8',alignItems:'center',justifyContent:'center'},headerInitial:{fontSize:20,fontWeight:'800',color:'#176D67'},headerTitle:{fontSize:28,fontWeight:'800',color:'#205D58'},headerIcon:{width:54,alignItems:'flex-end'},profileCard:{margin:28,padding:22,borderRadius:22,backgroundColor:'#FFFFFF',flexDirection:'row',alignItems:'center',shadowColor:'#8A96A3',shadowOpacity:.07,shadowRadius:10,elevation:2},largeAvatar:{width:72,height:72,borderRadius:36,backgroundColor:'#DDEBE8',alignItems:'center',justifyContent:'center'},largeInitial:{fontSize:27,fontWeight:'800',color:'#176D67'},profileCopy:{flex:1,marginLeft:18},name:{fontSize:21,fontWeight:'800',color:'#263342'},email:{fontSize:14,color:'#6B7878',marginTop:5},sectionTitle:{marginHorizontal:28,marginTop:10,marginBottom:10,fontSize:12,fontWeight:'900',letterSpacing:1.5,color:'#667371'},menuCard:{marginHorizontal:28,borderRadius:20,backgroundColor:'#FFFFFF',overflow:'hidden',shadowColor:'#8A96A3',shadowOpacity:.05,shadowRadius:8,elevation:1},menuRow:{minHeight:82,paddingHorizontal:18,flexDirection:'row',alignItems:'center'},menuIcon:{width:44,height:44,borderRadius:14,backgroundColor:'#EAF5F2',alignItems:'center',justifyContent:'center'},menuCopy:{flex:1,marginLeft:14},menuTitle:{fontSize:16,fontWeight:'800',color:'#263342'},menuSubtitle:{fontSize:12,color:'#71807E',marginTop:3},divider:{height:1,marginLeft:76,backgroundColor:'#E8EEEE'},signOutButton:{margin:28,height:54,borderRadius:16,borderWidth:1,borderColor:'#F0C8C5',backgroundColor:'#FFF7F6',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:9},signOutText:{fontSize:16,fontWeight:'800',color:'#B3261E'},bottomNav:{position:'absolute',left:0,right:0,bottom:0,height:82,backgroundColor:'#FFFFFF',borderTopWidth:1,borderTopColor:'#E4E8EB',flexDirection:'row',alignItems:'center',justifyContent:'space-around'},navItem:{height:70,minWidth:62,alignItems:'center',justifyContent:'center',gap:4,paddingHorizontal:8},navText:{fontSize:11,color:'#475654'},activeNav:{backgroundColor:'#176D67',borderRadius:20,paddingHorizontal:16},activeNavText:{fontSize:11,color:'#FFFFFF',fontWeight:'700'},fab:{width:56,height:56,borderRadius:28,backgroundColor:'#FFFFFF',borderWidth:4,borderColor:'#176D67',alignItems:'center',justifyContent:'center'}});
