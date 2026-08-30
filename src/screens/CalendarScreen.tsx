@@ -1,0 +1,80 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import type { Transaction } from '../types/transaction';
+import { parseUserDate } from '../utils/date';
+import { formatCurrency } from '../utils/currency';
+
+type Props = {
+  transactions: Transaction[];
+  onBackHome: () => void;
+  onTransactions: () => void;
+  onAdd: () => void;
+  onNotifications: () => void;
+  onProfile: () => void;
+};
+
+type Filter = 'all' | 'lent' | 'owed';
+
+const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function monthGrid(year: number, month: number) {
+  const first = new Date(year, month, 1);
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells: Array<{ day: number; current: boolean }> = [];
+  const previousDays = new Date(year, month, 0).getDate();
+  for (let i = first.getDay() - 1; i >= 0; i -= 1) cells.push({ day: previousDays - i, current: false });
+  for (let day = 1; day <= days; day += 1) cells.push({ day, current: true });
+  while (cells.length % 7 !== 0) cells.push({ day: cells.length - (first.getDay() + days) + 1, current: false });
+  return cells;
+}
+
+function isOverdue(item: Transaction) {
+  if (item.status === 'settled') return false;
+  const date = parseUserDate(item.dueDate);
+  if (!date) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date.getTime() < today.getTime();
+}
+
+export function CalendarScreen({ transactions, onBackHome, onTransactions, onAdd, onNotifications, onProfile }: Props) {
+  const today = new Date();
+  const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [filter, setFilter] = useState<Filter>('all');
+  const [selectedDay, setSelectedDay] = useState(today.getDate());
+  const grid = useMemo(() => monthGrid(cursor.getFullYear(), cursor.getMonth()), [cursor]);
+  const selectedItems = transactions.filter((item) => {
+    if (item.status === 'settled') return false;
+    const due = parseUserDate(item.dueDate);
+    if (!due || due.getFullYear() !== cursor.getFullYear() || due.getMonth() !== cursor.getMonth() || due.getDate() !== selectedDay) return false;
+    return filter === 'all' || item.type === filter;
+  });
+  const monthTitle = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const dotsForDay = (day: number) => transactions.filter((item) => {
+    const due = parseUserDate(item.dueDate);
+    return due && item.status !== 'settled' && due.getFullYear() === cursor.getFullYear() && due.getMonth() === cursor.getMonth() && due.getDate() === day;
+  });
+
+  return <View style={styles.screen}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
+        <Pressable style={styles.profileButton} onPress={onProfile}><Ionicons name="person-outline" size={24} color="#F4F7F6" /></Pressable>
+        <Text style={styles.headerTitle}>Calendar</Text>
+        <Pressable onPress={onNotifications} style={styles.iconButton}><Ionicons name="notifications-outline" size={28} color="#17645F" /></Pressable>
+      </View>
+      <View style={styles.calendarCard}>
+        <View style={styles.monthRow}><Pressable onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><Ionicons name="chevron-back" size={30} color="#52635F" /></Pressable><Text style={styles.monthTitle}>{monthTitle}</Text><Pressable onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><Ionicons name="chevron-forward" size={30} color="#52635F" /></Pressable></View>
+        <View style={styles.weekRow}>{weekdays.map((day) => <Text key={day} style={styles.weekday}>{day}</Text>)}</View>
+        <View style={styles.grid}>{grid.map((cell, index) => { const items = cell.current ? dotsForDay(cell.day) : []; const selected = cell.current && cell.day === selectedDay; return <Pressable key={`${cell.day}-${index}`} onPress={() => cell.current && setSelectedDay(cell.day)} style={styles.dayCell}><View style={[styles.dayNumberWrap, selected && styles.selectedDay]}><Text style={[styles.dayNumber, !cell.current && styles.mutedDay, selected && styles.selectedDayText]}>{cell.day}</Text></View>{cell.current && items.length > 0 && <View style={styles.dots}>{items.slice(0, 2).map((item) => <View key={item.id} style={[styles.dot, isOverdue(item) || item.type === 'owed' ? styles.redDot : styles.greenDot]} />)}</View>}</Pressable>; })}</View>
+        <View style={styles.legend}><Text style={styles.legendGreen}>●</Text><Text style={styles.legendText}>To Receive</Text><Text style={styles.legendRed}>●</Text><Text style={styles.legendText}>To Pay / Overdue</Text></View>
+      </View>
+      <View style={styles.segment}>{(['all','lent','owed'] as Filter[]).map((value) => <Pressable key={value} onPress={() => setFilter(value)} style={[styles.segmentButton, filter === value && styles.segmentActive]}><Text style={[styles.segmentText, filter === value && styles.segmentActiveText]}>{value === 'all' ? 'All' : value === 'lent' ? 'Lent' : 'Borrowed'}</Text></Pressable>)}</View>
+      <View style={styles.listHeader}><Text style={styles.listTitle}>{selectedDay} {cursor.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</Text><Text style={styles.count}>{selectedItems.length} items</Text></View>
+      {selectedItems.length === 0 ? <View style={styles.emptyCard}><Ionicons name="calendar-outline" size={28} color="#7A8986" /><Text style={styles.emptyTitle}>No dues for this date</Text><Text style={styles.emptyText}>Select another day or add a transaction.</Text></View> : selectedItems.map((item) => <View key={item.id} style={styles.itemCard}><View style={[styles.initial, isOverdue(item) && styles.overdueInitial]}><Text style={[styles.initialText, isOverdue(item) && styles.overdueInitialText]}>{item.person.split(' ').map((part) => part[0]).join('').slice(0, 2)}</Text></View><View style={styles.itemInfo}><Text style={styles.person}>{item.person}</Text><Text style={styles.note}>{item.note}</Text></View><View style={styles.amountWrap}><Text style={[styles.amount, (item.type === 'owed' || isOverdue(item)) && styles.redAmount]}>{formatCurrency(item.amount)}</Text><View style={[styles.badge, (item.type === 'owed' || isOverdue(item)) ? styles.redBadge : styles.greenBadge]}><Text style={[styles.badgeText, (item.type === 'owed' || isOverdue(item)) ? styles.redBadgeText : styles.greenBadgeText]}>{isOverdue(item) ? 'OVERDUE' : item.type === 'owed' ? 'TO PAY' : 'TO RECEIVE'}</Text></View></View></View>)}
+    </ScrollView>
+    <View style={styles.bottomNav}><Pressable style={styles.navItem} onPress={onBackHome}><Ionicons name="home-outline" size={24} color="#475654" /><Text style={styles.navText}>Home</Text></Pressable><Pressable style={styles.navItem} onPress={onTransactions}><Ionicons name="list-outline" size={24} color="#475654" /><Text style={styles.navText}>Transactions</Text></Pressable><Pressable style={styles.fab} onPress={onAdd}><Ionicons name="add" size={30} color="#17645F" /></Pressable><Pressable style={[styles.navItem, styles.activeNav]}><Ionicons name="calendar" size={24} color="#FFFFFF" /><Text style={styles.activeNavText}>Calendar</Text></Pressable><Pressable style={styles.navItem} onPress={onProfile}><Ionicons name="person-outline" size={24} color="#475654" /><Text style={styles.navText}>Profile</Text></Pressable></View>
+  </View>;
+}
+
+const styles = StyleSheet.create({ screen:{flex:1,backgroundColor:'#F7F8FC'},content:{paddingBottom:96},header:{height:82,paddingHorizontal:28,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#E2E7EA'},headerTitle:{fontSize:31,fontWeight:'800',color:'#205D58'},profileButton:{width:58,height:58,borderRadius:29,backgroundColor:'#18726D',alignItems:'center',justifyContent:'center'},iconButton:{width:58,alignItems:'flex-end'},calendarCard:{margin:28,padding:28,borderRadius:24,backgroundColor:'#FFFFFF',shadowColor:'#8A96A3',shadowOpacity:.08,shadowRadius:14,elevation:2},monthRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:24},monthTitle:{fontSize:27,fontWeight:'700',letterSpacing:2,color:'#263342'},weekRow:{flexDirection:'row'},weekday:{width:'14.285%',textAlign:'center',fontSize:15,fontWeight:'700',color:'#66706E'},grid:{flexDirection:'row',flexWrap:'wrap',marginTop:10},dayCell:{width:'14.285%',height:74,alignItems:'center',justifyContent:'center'},dayNumberWrap:{width:52,height:52,borderRadius:26,alignItems:'center',justifyContent:'center'},selectedDay:{backgroundColor:'#176D67'},dayNumber:{fontSize:20,color:'#253443'},mutedDay:{color:'#AAB5B4'},selectedDayText:{color:'#FFFFFF'},dots:{flexDirection:'row',gap:4,position:'absolute',bottom:2},dot:{width:8,height:8,borderRadius:4},greenDot:{backgroundColor:'#176D67'},redDot:{backgroundColor:'#C62828'},legend:{borderTopWidth:1,borderTopColor:'#D7E0E4',paddingTop:18,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7},legendGreen:{color:'#176D67'},legendRed:{color:'#C62828',marginLeft:18},legendText:{fontSize:13,fontWeight:'700',color:'#4B5858'},segment:{marginHorizontal:58,marginTop:14,padding:7,borderRadius:36,backgroundColor:'#E7EBF0',flexDirection:'row'},segmentButton:{flex:1,paddingVertical:13,borderRadius:28,alignItems:'center'},segmentActive:{backgroundColor:'#176D67'},segmentText:{fontSize:16,fontWeight:'700',color:'#4D5757'},segmentActiveText:{color:'#FFFFFF'},listHeader:{marginHorizontal:28,marginTop:38,marginBottom:18,flexDirection:'row',justifyContent:'space-between',alignItems:'center'},listTitle:{fontSize:25,fontWeight:'800',color:'#263342'},count:{fontSize:16,color:'#697577'},itemCard:{marginHorizontal:28,marginBottom:14,padding:20,borderRadius:18,backgroundColor:'#FFFFFF',flexDirection:'row',alignItems:'center',shadowColor:'#8A96A3',shadowOpacity:.07,shadowRadius:8,elevation:1},initial:{width:58,height:58,borderRadius:29,backgroundColor:'#DCE8F6',alignItems:'center',justifyContent:'center'},overdueInitial:{backgroundColor:'#F8DDDA'},initialText:{fontSize:20,fontWeight:'800',color:'#205D58'},overdueInitialText:{color:'#B3261E'},itemInfo:{flex:1,marginLeft:18},person:{fontSize:21,fontWeight:'800',color:'#263342'},note:{fontSize:15,color:'#6D797A',marginTop:5},amountWrap:{alignItems:'flex-end'},amount:{fontSize:22,fontWeight:'800',color:'#176D67'},redAmount:{color:'#B3261E'},badge:{marginTop:8,paddingHorizontal:11,paddingVertical:5,borderRadius:16},greenBadge:{backgroundColor:'#DDEEEB'},redBadge:{backgroundColor:'#FCE2E0'},badgeText:{fontSize:10,fontWeight:'900',letterSpacing:.8},greenBadgeText:{color:'#176D67'},redBadgeText:{color:'#B3261E'},emptyCard:{marginHorizontal:28,padding:30,alignItems:'center',borderRadius:18,backgroundColor:'#FFFFFF'},emptyTitle:{fontSize:17,fontWeight:'800',marginTop:12,color:'#263342'},emptyText:{fontSize:14,color:'#758080',marginTop:4,textAlign:'center'},bottomNav:{position:'absolute',left:0,right:0,bottom:0,height:82,backgroundColor:'#FFFFFF',borderTopWidth:1,borderTopColor:'#E4E8EB',flexDirection:'row',alignItems:'center',justifyContent:'space-around'},navItem:{height:70,minWidth:62,alignItems:'center',justifyContent:'center',gap:4,paddingHorizontal:8},navText:{fontSize:11,color:'#475654'},activeNav:{backgroundColor:'#176D67',borderRadius:20,paddingHorizontal:16},activeNavText:{fontSize:11,color:'#FFFFFF',fontWeight:'700'},fab:{width:56,height:56,borderRadius:28,backgroundColor:'#FFFFFF',borderWidth:4,borderColor:'#176D67',alignItems:'center',justifyContent:'center'} });
